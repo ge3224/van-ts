@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="icon" type="image/svg+xml" href="/vite.svg">
+  <title>Van Tests</title>
+  <meta charset="UTF-8">
+  <style>
+    .testMsg>div {
+      display: table-row;
+    }
+
+    .testMsg>div>pre {
+      display: table-cell;
+    }
+
+    .testMsg>div>pre:first-child {
+      width: 500px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Van Tests</h1>
+  <div id="msgPanel"></div>
+  <div id="endMsg" style="display: none">
+    <h2>The End</h2>
+    <p>✅ <span id="numTests">0</span> tests passed</p>
+  </div>
+
+  <script type="module">
+    import {testVanFile} from "./van.test.ts"
+
+    let es6TestingBlockerResolve
+    window.es6TestingBlocker = new Promise(resolve => es6TestingBlockerResolve = resolve)
+
+    const params = new Proxy(new URLSearchParams(window.location.search), {
+      get: (searchParams, prop) => searchParams.get(prop),
+    })
+
+    const version = params.version ?? "latest";
+
+    (async () => {
+      await testVanFile(`../src/van.ts`, "es6")
+      es6TestingBlockerResolve()
+    })()
+  </script>
+</body>
+
+</html>

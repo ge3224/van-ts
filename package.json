@@ -1,53 +1,23 @@
 {
-  "name": "vanjs-core",
-  "version": "1.5.0",
-  "description": "VanJS. A minimalist React-like UI library based on vanilla JavaScript and DOM.",
-  "files": [
-    "src/van.js",
-    "src/van.d.ts",
-    "src/van.debug.js",
-    "src/van.debug.d.ts"
-  ],
-  "main": "src/van.js",
-  "browser": "src/van.js",
-  "exports": {
-    ".": "./src/van.js",
-    "./debug": "./src/van.debug.js"
-  },
+  "name": "van-ts-core",
+  "private": true,
+  "version": "0.0.0",
+  "description": "An experimental port of VanJS to a full TypeScript project",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "prettier": "prettier --config prettier.config.js 'src/**/*.ts' --write"
   },
-  "keywords": [
-    "Van",
-    "Vanilla",
-    "UI",
-    "UI Framework",
-    "React",
-    "Reactive",
-    "DOM",
-    "DOM Manipulation",
-    "Zero-Dependency",
-    "lightweight",
-    "Ultra-lightweight",
-    "Minimalist"
+  "author": [
+    "Tao Xin",
+    "Bei Jie"
   ],
-  "author": "Tao Xin",
   "license": "MIT",
   "devDependencies": {
-    "all-contributors-cli": "^6.26.1",
-    "esbuild": "^0.17.12",
-    "node-jq": "^2.3.5",
-    "terser": "^5.22.0",
-    "typescript": "^5.1.6"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vanjs-org/van.git"
-  },
-  "bugs": {
-    "url": "https://github.com/vanjs-org/van/issues",
-    "email": "bugs@vanjs.org"
-  },
-  "homepage": "https://vanjs.org"
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.8"
+  }
 }
