@@ -1,8 +1,38 @@
+export interface State<T> {
+  val: T,
+  readonly oldVal: T,
+  readonly rawVal: T,
+}
+
+export type StateView<T> = Readonly<State<T>>
+
+export type Val<T> = State<T> | T
+
+export type Primitive = string | number | boolean | bigint
+
+export type PropValue = Primitive | ((e: any) => void) | null
+
+export type PropValueOrDerived = PropValue | StateView<PropValue> | (() => PropValue)
+
+export type Props = Record<string, PropValueOrDerived> & { class?: PropValueOrDerived }
+
+export type PropsWithKnownKeys<ElementType> = Partial<{ [K in keyof ElementType]: PropValueOrDerived }>
+
+export type ValidChildDomValue = Primitive | Node | null | undefined
+
+export type BindingFunc = ((dom?: Node) => ValidChildDomValue) | ((dom?: Element) => Element)
+
+export type ChildDom = ValidChildDomValue | StateView<Primitive | null | undefined> | BindingFunc | readonly ChildDom[]
+
+export type TagFunc<Result> = (first?: Props & PropsWithKnownKeys<Result> | ChildDom, ...rest: readonly ChildDom[]) => Result
+
+type Tags = Readonly<Record<string, TagFunc<Element>>> & {
+  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>
+}
+
 // This file consistently uses `let` keyword instead of `const` for reducing the bundle size.
-
-import { State } from "./definitions";
-
 // Global variables - aliasing some builtin symbols to reduce the bundle size.
+
 let protoOf = Object.getPrototypeOf;
 
 //------------------------------------------------------------------------------------------------
@@ -22,7 +52,7 @@ let alwaysConnectedDom = { isConnected: 1 };
 // let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
 //------------------------------------------------------------------------------------------------
 let gcCycleInMs = 1000;
-let statesToGc: unknown;
+let statesToGc: Set<unknown> | undefined;
 let propSetterCache = {};
 
 //------------------------------------------------------------------------------------------------
@@ -88,29 +118,53 @@ function runAndCaptureDeps<T, R>(
   }
 }
 
+type Connectable = { _dom?: { isConnected: boolean } };
+
 //------------------------------------------------------------------------------------------------
 // VanJS implementation:
 //
 // let keepConnected = l => l.filter(b => b._dom?.isConnected)
 //------------------------------------------------------------------------------------------------
-function keepConnected<T extends { _dom?: { isConnected: boolean } }>(
+function keepConnected<T extends Connectable>(
   l: T[]
 ): T[] {
   return l.filter((b) => b._dom?.isConnected);
 }
 
-let addStatesToGc = (d) =>
-(statesToGc = addAndScheduleOnFirst(
-  statesToGc,
-  d,
-  () => {
-    for (let s of statesToGc)
-      (s._bindings = keepConnected(s._bindings)),
-        (s._listeners = keepConnected(s._listeners));
-    statesToGc = _undefined;
-  },
-  gcCycleInMs
-));
+//------------------------------------------------------------------------------------------------
+// VanJS implementation:
+//
+// let addStatesToGc = (d) =>
+// (statesToGc = addAndScheduleOnFirst(
+//   statesToGc,
+//   d,
+//   () => {
+//     for (let s of statesToGc)
+//       (s._bindings = keepConnected(s._bindings)),
+//         (s._listeners = keepConnected(s._listeners));
+//     statesToGc = _undefined;
+//   },
+//   gcCycleInMs
+// ));
+//------------------------------------------------------------------------------------------------
+function addStatesToGc<
+  T extends { _bindings: Connectable[]; _listeners: Connectable[] },
+>(d: T): void {
+  statesToGc = addAndScheduleOnFirst(
+    statesToGc,
+    d,
+    () => {
+      if (statesToGc) {
+        for (let s of statesToGc) {
+          s._bindings = keepConnected(s._bindings);
+          s._listeners = keepConnected(s._listeners);
+        }
+        statesToGc = undefined; // Resets `statesToGc` after processing
+      }
+    },
+    gcCycleInMs
+  );
+}
 
 let stateProto = {
   get val() {
