@@ -2,9 +2,23 @@
 
 // Global variables - aliasing some builtin symbols to reduce the bundle size.
 let protoOf = Object.getPrototypeOf
-let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
-let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
-let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
+
+// let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
+let changedStates: unknown;
+let derivedStates: unknown;
+let curDeps: unknown;
+let curNewDerives: unknown;
+let alwaysConnectedDom = { isConnected: 1 }
+
+// let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
+let gcCycleInMs = 1000;
+let statesToGc: unknown;
+let propSetterCache = {}
+
+// let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
+let objProto = protoOf(alwaysConnectedDom);
+let funcProto = protoOf(protoOf);
+let _undefined: unknown;
 
 let addAndScheduleOnFirst = (set, s, f, waitMs) =>
   (set ?? (setTimeout(f, waitMs), new Set)).add(s)
@@ -27,7 +41,7 @@ let keepConnected = l => l.filter(b => b._dom?.isConnected)
 let addStatesToGc = d => statesToGc = addAndScheduleOnFirst(statesToGc, d, () => {
   for (let s of statesToGc)
     s._bindings = keepConnected(s._bindings),
-    s._listeners = keepConnected(s._listeners)
+      s._listeners = keepConnected(s._listeners)
   statesToGc = _undefined
 }, gcCycleInMs)
 
@@ -62,7 +76,7 @@ let state = initVal => ({
 })
 
 let bind = (f, dom) => {
-  let deps = {_getters: new Set, _setters: new Set}, binding = {f}, prevNewDerives = curNewDerives
+  let deps = { _getters: new Set, _setters: new Set }, binding = { f }, prevNewDerives = curNewDerives
   curNewDerives = []
   let newDom = runAndCaptureDeps(f, deps, dom)
   newDom = (newDom ?? document).nodeType ? newDom : new Text(newDom)
@@ -74,7 +88,7 @@ let bind = (f, dom) => {
 }
 
 let derive = (f, s = state(), dom) => {
-  let deps = {_getters: new Set, _setters: new Set}, listener = {f, s}
+  let deps = { _getters: new Set, _setters: new Set }, listener = { f, s }
   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom
   s.val = runAndCaptureDeps(f, deps, s.rawVal)
   for (let d of deps._getters)
@@ -116,7 +130,7 @@ let tag = (ns, name, ...args) => {
   return add(dom, ...children)
 }
 
-let handler = ns => ({get: (_, name) => tag.bind(_undefined, ns, name)})
+let handler = ns => ({ get: (_, name) => tag.bind(_undefined, ns, name) })
 let tags = new Proxy(ns => new Proxy(tag, handler(ns)), handler())
 
 let update = (dom, newDom) => newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove()
@@ -137,4 +151,4 @@ let updateDoms = () => {
 
 let hydrate = (dom, f) => update(dom, bind(f, dom))
 
-export default {add, tags, state, derive, hydrate}
+export default { add, tags, state, derive, hydrate }
