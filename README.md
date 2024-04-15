@@ -9,7 +9,6 @@ This is a [TypeScript](https://www.typescriptlang.org/) adaptation of the [VanJS
 ## Goals of van-ts
 
 - **Understand and Translate**: Deep dive into the source code of VanJS to understand its implementation and architecture.
-- **Learning and Documentation**: Document the translation process and the challenges encountered, providing insights and learning experiences.
 - **TypeScript Adaptation**: Adapt the original JavaScript code into TypeScript, aiming to enhance readability and accessibility for developers with various backgrounds and experience levels.
 - **Community Involvement**: Encourage contributions and discussions to improve the understanding and implementation of reactive UI programming principles.
 
