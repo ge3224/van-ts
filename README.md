@@ -19,7 +19,7 @@ This project is currently in the early stages of development. The core functiona
 
 ## Contributing
 
-Contributions are welcome! Whether you are helping with translating JavaScript code to TypeScript, fixing bugs, or proposing new features, we appreciate your interest and involvement.
+Contributions are welcome! Whether you are helping with translating JavaScript code to TypeScript, fixing bugs, or proposing new features, your interest and involvement is appreciated.
 
 ### How to Contribute
 
@@ -85,7 +85,7 @@ Run the build script. Execute the following command to compile your TypeScript f
 
 ```bash
 
-    npm run build
+npm run build
 
 ```
 
@@ -96,7 +96,7 @@ This script performs two main tasks:
 
 #### Output
 
-The output of the build process will be placed in the dist directory, which will contain all your static files ready for deployment:
+The output of the build process will be placed in the `dist` directory, which will contain all your static files ready for deployment:
 
 ## License
 
