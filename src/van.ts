@@ -325,11 +325,6 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  * })
  * ```
  *
- * NOTE: In contrast to the above implementation, where reducing the bundle
- * size is a key priority, we use the `Object.create` method instead of the
- * `Object.prototype.__proto__` accessor since the latter is no
- * longer recommended.
- *
  * @template T
  * - The type of the initial value.
  *
@@ -339,10 +334,14 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  * @returns {State<T>}
  * - A new state object with properties `rawVal`, `_oldVal`, `_bindings`,
  *   and `_listeners`
- *
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto}
  */
 function state<T>(initVal?: T): State<T> {
+  //  In contrast to the above implementation, where reducing the bundle
+  //  size is a key priority, we use the `Object.create` method instead of the
+  //  `Object.prototype.__proto__` accessor since the latter is no
+  //  longer recommended.
+  //
+  // [MDN Reference](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto)
   return Object.create(stateProto, {
     rawVal: statePropertyDescriptor(initVal),
     _oldVal: statePropertyDescriptor(initVal),
@@ -424,7 +423,7 @@ let tag = (ns, name, ...args) => {
     let getPropDescriptor = (proto) =>
       proto
         ? Object.getOwnPropertyDescriptor(proto, k) ??
-          getPropDescriptor(protoOf(proto))
+        getPropDescriptor(protoOf(proto))
         : _undefined;
     let cacheKey = name + "," + k;
     let propSetter =
@@ -432,10 +431,10 @@ let tag = (ns, name, ...args) => {
       (propSetterCache[cacheKey] = getPropDescriptor(protoOf(dom))?.set ?? 0);
     let setter = k.startsWith("on")
       ? (v, oldV) => {
-          let event = k.slice(2);
-          dom.removeEventListener(event, oldV);
-          dom.addEventListener(event, v);
-        }
+        let event = k.slice(2);
+        dom.removeEventListener(event, oldV);
+        dom.addEventListener(event, v);
+      }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
