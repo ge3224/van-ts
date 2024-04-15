@@ -31,19 +31,6 @@ export type ChildDom =
   | BindingFunc
   | readonly ChildDom[];
 
-export type TagFunc<Result> = (
-  first?: (Props & PropsWithKnownKeys<Result>) | ChildDom,
-  ...rest: readonly ChildDom[]
-) => Result;
-
-type Tags = Readonly<Record<string, TagFunc<Element>>> & {
-  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
-};
-
-type NamespaceFunction = (
-  namespaceURI: string
-) => Readonly<Record<string, TagFunc<Element>>>;
-
 export interface State<T> {
   val: T | undefined;
   readonly oldVal: T | undefined;
@@ -113,14 +100,18 @@ let _undefined: unknown;
  * ```
  *
  * @template T The type parameter representing the state type stored in the set.
+ *
  * @param {Set<State<T>> | undefined} set
  * - The set to which the state will be added. If this parameter is undefined,
  *   a new set is created.
+ *
  * @param {State<T>} state
  * - The state object to be added to the set.
+ *
  * @param {() => void} fn
  * - The function to execute if the set is initially undefined, scheduled to
  *   run after `waitMs` milliseconds.
+ *
  * @param {number} waitMs
  * - The number of milliseconds to wait before executing the function `fn`.
  *
@@ -159,21 +150,26 @@ function addAndScheduleOnFirst<T>(
  *     curDeps = prevDeps
  *   }
  * }
+ * ```
  *
  * @param {Function} fn
  * - A function that takes an argument of type T and returns a value of type R.
+ *
  * @param {unknown} deps
  * - The dependencies to track or use during the execution of the function.
+ *
  * @param {T} arg
  * - The argument to pass to the function `f`.
+ *
  * @returns {R | T}
  * - Returns the result of the function `f` if it executes successfully;
  *   otherwise, returns the argument `arg` if an error occurs.
+ *
  * @template T
  * - The type of the argument passed to the function.
+ *
  * @template R
  * - The type of the result returned by the function.
- * ```
  */
 function runAndCaptureDependencies<T, R>(
   fn: (arg: T) => R,
@@ -206,8 +202,10 @@ function runAndCaptureDependencies<T, R>(
  * @param {T[]} l
  * - An array of objects that extend the Connectable interface, each having
  *   potentially a `_dom` property which contains an `isConnected` boolean.
+ *
  * @returns {T[]}
  * - An array containing only the Connectable objects that are connected.
+ *
  * @template T
  * - Extends the Connectable interface, which implies each object has an
  *   optional `_dom` property.
@@ -238,6 +236,7 @@ function keepConnected<T extends Connectable>(l: T[]): T[] {
  *
  * @template T
  * - The type of the value stored within the state.
+ *
  * @param {State<T>} discard
  * - The state object to be added to the garbage collection process. This
  *   object must have `_bindings` and `_listeners` properties.
@@ -292,8 +291,10 @@ let stateProto = {
  *
  * @template T
  * - The type of the value to be set in the property descriptor.
+ *
  * @param {T} value
  * - The value to be assigned to the property.
+ *
  * @returns {PropertyDescriptor}
  * - A property descriptor object with the given value and with `writable`,
  *   `configurable`, and `enumerable` properties all set to true.
@@ -331,8 +332,10 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  *
  * @template T
  * - The type of the initial value.
+ *
  * @param {T} [initVal]
  * - Optional initial value for the state.
+ *
  * @returns {State<T>}
  * - A new state object with properties `rawVal`, `_oldVal`, `_bindings`,
  *   and `_listeners`
@@ -421,7 +424,7 @@ let tag = (ns, name, ...args) => {
     let getPropDescriptor = (proto) =>
       proto
         ? Object.getOwnPropertyDescriptor(proto, k) ??
-        getPropDescriptor(protoOf(proto))
+          getPropDescriptor(protoOf(proto))
         : _undefined;
     let cacheKey = name + "," + k;
     let propSetter =
@@ -429,10 +432,10 @@ let tag = (ns, name, ...args) => {
       (propSetterCache[cacheKey] = getPropDescriptor(protoOf(dom))?.set ?? 0);
     let setter = k.startsWith("on")
       ? (v, oldV) => {
-        let event = k.slice(2);
-        dom.removeEventListener(event, oldV);
-        dom.addEventListener(event, v);
-      }
+          let event = k.slice(2);
+          dom.removeEventListener(event, oldV);
+          dom.addEventListener(event, v);
+        }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
@@ -457,35 +460,57 @@ let tag = (ns, name, ...args) => {
  * let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
  * ```
  *
- *
  * @param {string} [namespace]
  * - An optional namespace to be included when binding the property name to the
  *   `tag` function. This can help differentiate or categorize property
  *   accesses if used with multiple proxies or for properties under different
  *   contexts.
+ *
  * @returns {object}
  * - Returns an object that contains a 'get' trap for a proxy. This trap is a
  *   function that takes a target object and a property name, and returns a
  *   result of calling `tag.bind()`, effectively intercepting and handling the
  *   property access with customized logic.
  */
-function proxyHandler(namespace?: string): object {
+function proxyHandler(namespace?: string): ProxyHandler<object> {
   return {
     get: (_: never, name: string) => tag.bind(_undefined, namespace, name),
   };
 }
 
+export type TagFunc<Result> = (
+  first?: (Props & PropsWithKnownKeys<Result>) | ChildDom,
+  ...rest: readonly ChildDom[]
+) => Result;
+
+type Tags = Readonly<Record<string, TagFunc<Element>>> & {
+  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
+};
+
+type NamespaceFunction = (
+  namespaceURI: string
+) => Readonly<Record<string, TagFunc<Element>>>;
+
 /**
+ * Creates a Proxy object for managing tags and namespaces.
+ *
  * VanJS implementation:
  *
  * ```
  * let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
  * ```
+ *
+ * @param {string} [namespace]
+ * - Optional namespace for tags.
+ *
+ * @returns {NamespaceFunction}
+ * - A function that creates tags within the specified namespace.
  */
-let tags: Tags & NamespaceFunction = new Proxy(
-  (ns) => new Proxy(tag, proxyHandler(ns)),
+let tags = new Proxy(
+  (namespace?: string) =>
+    new Proxy(tag, proxyHandler(namespace)) as NamespaceFunction,
   proxyHandler()
-);
+) as Tags & NamespaceFunction;
 
 let update = (dom, newDom) =>
   newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove();
@@ -528,8 +553,10 @@ let updateDoms = () => {
  *
  * @template T
  * - Extends Node, representing the type of the DOM node being hydrated.
+ *
  * @param {T} dom
  * - The DOM node to hydrate. This is the node that will be transformed.
+ *
  * @param {(dom: T) => T | null | undefined} f
  * - A transformation function that takes the node as an argument and returns
  *   the transformed
