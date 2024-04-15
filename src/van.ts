@@ -423,7 +423,7 @@ let tag = (ns, name, ...args) => {
     let getPropDescriptor = (proto) =>
       proto
         ? Object.getOwnPropertyDescriptor(proto, k) ??
-        getPropDescriptor(protoOf(proto))
+          getPropDescriptor(protoOf(proto))
         : _undefined;
     let cacheKey = name + "," + k;
     let propSetter =
@@ -431,10 +431,10 @@ let tag = (ns, name, ...args) => {
       (propSetterCache[cacheKey] = getPropDescriptor(protoOf(dom))?.set ?? 0);
     let setter = k.startsWith("on")
       ? (v, oldV) => {
-        let event = k.slice(2);
-        dom.removeEventListener(event, oldV);
-        dom.addEventListener(event, v);
-      }
+          let event = k.slice(2);
+          dom.removeEventListener(event, oldV);
+          dom.addEventListener(event, v);
+        }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
@@ -477,15 +477,58 @@ function proxyHandler(namespace?: string): ProxyHandler<object> {
   };
 }
 
+/**
+ * Represents a function type that constructs a tagged result using provided
+ * properties and children.
+ *
+ * @template Result
+ * - The type of the result produced by the function.
+ *
+ * @param {Props & PropsWithKnownKeys<Result> | ChildDom} [first]
+ * - The initial parameter can either be an object combining Props and
+ *   PropsWithKnownKeys specific to Result, or a ChildDom element.
+ *
+ * @param {...ChildDom[]} rest
+ * - Additional ChildDom elements passed as subsequent arguments.
+ *
+ * @returns {Result}
+ * - The result of the tag function, typically a DOM element or a similar construct.
+ */
 export type TagFunc<Result> = (
   first?: (Props & PropsWithKnownKeys<Result>) | ChildDom,
   ...rest: readonly ChildDom[]
 ) => Result;
 
+/**
+ * Represents a type for a collection of tag functions.
+ *
+ * This type includes:
+ * - A readonly record of string keys to TagFunc<Element> functions, enabling
+ *   the creation of generic HTML elements.
+ * - Specific tag functions for each HTML element type as defined in
+ *   HTMLElementTagNameMap, with the return type corresponding to the specific
+ *   type of the HTML element (e.g., HTMLDivElement for 'div',
+ *   HTMLAnchorElement for 'a').
+ *
+ * Usage of this type allows for type-safe creation of HTML elements with
+ * specific properties and child elements.
+ */
 type Tags = Readonly<Record<string, TagFunc<Element>>> & {
   [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
 };
 
+/**
+ * Represents a function type for creating a namespace-specific collection of
+ * tag functions.
+ *
+ * @param {string} namespaceURI
+ * - The URI of the namespace for which the tag functions are being created.
+ *
+ * @returns {Readonly<Record<string, TagFunc<Element>>>}
+ * - A readonly record of string keys to TagFunc<Element> functions,
+ *   representing the collection of tag functions within the specified
+ *   namespace.
+ */
 type NamespaceFunction = (
   namespaceURI: string
 ) => Readonly<Record<string, TagFunc<Element>>>;
