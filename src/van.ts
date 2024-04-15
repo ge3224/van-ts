@@ -213,25 +213,71 @@ let stateProto = {
   },
 };
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let state = initVal => ({
-//   __proto__: stateProto,
-//   rawVal: initVal,
-//   _oldVal: initVal,
-//   _bindings: [],
-//   _listeners: [],
-// })
-//------------------------------------------------------------------------------------------------
-function state<T>(initVal?: T): State<T> {
+/**
+ * Generates a property descriptor with preset characteristics for state
+ * object properties.
+ *
+ * This function creates a property descriptor object that is intended to be
+ * used when defining properties on objects using `Object.create` or similar
+ * methods. It sets the properties to be writable, configurable, and
+ * enumerable.
+ *
+ * @template T
+ * - The type of the value to be set in the property descriptor.
+ * @param {T} value
+ * - The value to be assigned to the property.
+ * @returns {PropertyDescriptor}
+ * - A property descriptor object with the given value and with `writable`,
+ *   `configurable`, and `enumerable` properties all set to true.
+ */
+function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
   return {
-    __proto__: stateProto,
-    rawVal: initVal,
-    _oldVal: initVal,
-    _bindings: [],
-    _listeners: [],
+    writable: true,
+    configurable: true,
+    enumerable: true,
+    value: value,
   };
+}
+
+/**
+ * This function initializes a state object with a value, bindings, and
+ * listeners. The properties of the created object are configured to be
+ * enumerable, writable, and configurable.
+ *
+ * A Refactor of the VanJS implementation:
+ * 
+ * ```
+ * let state = initVal => ({
+ *   __proto__: stateProto,
+ *   rawVal: initVal,
+ *   _oldVal: initVal,
+ *   _bindings: [],
+ *   _listeners: [],
+ * })
+ * ```
+ *
+ * In contrast to the above implementation, where reducing the bundle size is a
+ * key priority, we use the `Object.create` method instead of the
+ * `Object.prototype.__proto__` accessor since the latter is controversial and
+ * classified as deprecated.
+ *
+ * @template T
+ * - The type of the initial value.
+ * @param {T} [initVal]
+ * - Optional initial value for the state.
+ * @returns {State<T>}
+ * - A new state object with properties `rawVal`, `_oldVal`, `_bindings`,
+ *   and `_listeners`.
+ * 
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto}
+ */
+function state<T>(initVal?: T): State<T> {
+  return Object.create(stateProto, {
+    rawVal: statePropertyDescriptor(initVal),
+    _oldVal: statePropertyDescriptor(initVal),
+    _bindings: statePropertyDescriptor([]),
+    _listeners: statePropertyDescriptor([]),
+  });
 }
 
 let bind = (f, dom) => {
