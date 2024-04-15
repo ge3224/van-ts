@@ -1,34 +1,57 @@
-export interface State<T> {
-  val: T,
-  readonly oldVal: T,
-  readonly rawVal: T,
-}
+export type Primitive = string | number | boolean | bigint;
 
-export type StateView<T> = Readonly<State<T>>
+export type PropValue = Primitive | ((e: any) => void) | null;
 
-export type Val<T> = State<T> | T
+export type PropValueOrDerived =
+  | PropValue
+  | StateView<PropValue>
+  | (() => PropValue);
 
-export type Primitive = string | number | boolean | bigint
+export type Props = Record<string, PropValueOrDerived> & {
+  class?: PropValueOrDerived;
+};
 
-export type PropValue = Primitive | ((e: any) => void) | null
+export type PropsWithKnownKeys<ElementType> = Partial<{
+  [K in keyof ElementType]: PropValueOrDerived;
+}>;
 
-export type PropValueOrDerived = PropValue | StateView<PropValue> | (() => PropValue)
+export type ValidChildDomValue = Primitive | Node | null | undefined;
 
-export type Props = Record<string, PropValueOrDerived> & { class?: PropValueOrDerived }
+export type BindingFunc =
+  | ((dom?: Node) => ValidChildDomValue)
+  | ((dom?: Element) => Element);
 
-export type PropsWithKnownKeys<ElementType> = Partial<{ [K in keyof ElementType]: PropValueOrDerived }>
+export type ChildDom =
+  | ValidChildDomValue
+  | StateView<Primitive | null | undefined>
+  | BindingFunc
+  | readonly ChildDom[];
 
-export type ValidChildDomValue = Primitive | Node | null | undefined
-
-export type BindingFunc = ((dom?: Node) => ValidChildDomValue) | ((dom?: Element) => Element)
-
-export type ChildDom = ValidChildDomValue | StateView<Primitive | null | undefined> | BindingFunc | readonly ChildDom[]
-
-export type TagFunc<Result> = (first?: Props & PropsWithKnownKeys<Result> | ChildDom, ...rest: readonly ChildDom[]) => Result
+export type TagFunc<Result> = (
+  first?: (Props & PropsWithKnownKeys<Result>) | ChildDom,
+  ...rest: readonly ChildDom[]
+) => Result;
 
 type Tags = Readonly<Record<string, TagFunc<Element>>> & {
-  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>
+  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
+};
+
+type NamespaceFunction = (
+  namespaceURI: string
+) => Readonly<Record<string, TagFunc<Element>>>;
+
+export interface State<T> {
+  val: T | undefined;
+  readonly oldVal: T | undefined;
+  readonly rawVal: T | undefined;
+  _oldVal: T | undefined;
+  _bindings: unknown[];
+  _listeners: unknown[];
 }
+
+export type StateView<T> = Readonly<State<T>>;
+
+export type Val<T> = State<T> | T;
 
 // This file consistently uses `let` keyword instead of `const` for reducing the bundle size.
 // Global variables - aliasing some builtin symbols to reduce the bundle size.
@@ -52,7 +75,7 @@ let alwaysConnectedDom = { isConnected: 1 };
 // let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
 //------------------------------------------------------------------------------------------------
 let gcCycleInMs = 1000;
-let statesToGc: Set<unknown> | undefined;
+let statesToGc: Set<any> | undefined;
 let propSetterCache = {};
 
 //------------------------------------------------------------------------------------------------
@@ -125,17 +148,14 @@ type Connectable = { _dom?: { isConnected: boolean } };
 //
 // let keepConnected = l => l.filter(b => b._dom?.isConnected)
 //------------------------------------------------------------------------------------------------
-function keepConnected<T extends Connectable>(
-  l: T[]
-): T[] {
+function keepConnected<T extends Connectable>(l: T[]): T[] {
   return l.filter((b) => b._dom?.isConnected);
 }
 
 //------------------------------------------------------------------------------------------------
 // VanJS implementation:
 //
-// let addStatesToGc = (d) =>
-// (statesToGc = addAndScheduleOnFirst(
+// let addStatesToGc = (d) => (statesToGc = addAndScheduleOnFirst(
 //   statesToGc,
 //   d,
 //   () => {
@@ -193,13 +213,26 @@ let stateProto = {
   },
 };
 
-let state = <T>(initVal?: T): State<T> => ({
-  __proto__: stateProto,
-  rawVal: initVal,
-  _oldVal: initVal,
-  _bindings: [],
-  _listeners: [],
-});
+//------------------------------------------------------------------------------------------------
+// VanJS implementation:
+//
+// let state = initVal => ({
+//   __proto__: stateProto,
+//   rawVal: initVal,
+//   _oldVal: initVal,
+//   _bindings: [],
+//   _listeners: [],
+// })
+//------------------------------------------------------------------------------------------------
+function state<T>(initVal?: T): State<T> {
+  return {
+    __proto__: stateProto,
+    rawVal: initVal,
+    _oldVal: initVal,
+    _bindings: [],
+    _listeners: [],
+  };
+}
 
 let bind = (f, dom) => {
   let deps = { _getters: new Set(), _setters: new Set() },
@@ -225,7 +258,27 @@ let derive = (f, s = state(), dom) => {
   return s;
 };
 
-let add = (dom, ...children) => {
+//------------------------------------------------------------------------------------------------
+// VanJS implementation:
+//
+// let add = (dom, ...children) => {
+//   for (let c of children.flat(Infinity)) {
+//     let protoOfC = protoOf(c ?? 0);
+//     let child =
+//       protoOfC === stateProto
+//         ? bind(() => c.val)
+//         : protoOfC === funcProto
+//           ? bind(c)
+//           : c;
+//     child != _undefined && dom.append(child);
+//   }
+//   return dom;
+// };
+//------------------------------------------------------------------------------------------------
+function add(dom: Element, ...children: readonly ChildDom[]): Element {
+  // @ts-ignore
+  // TypeScript does not currently have a numeric literal type corresponding to
+  // Infinity [Github Issue](https://github.com/microsoft/TypeScript/issues/32277).
   for (let c of children.flat(Infinity)) {
     let protoOfC = protoOf(c ?? 0);
     let child =
@@ -237,7 +290,7 @@ let add = (dom, ...children) => {
     child != _undefined && dom.append(child);
   }
   return dom;
-};
+}
 
 let tag = (ns, name, ...args) => {
   let [props, ...children] =
@@ -275,7 +328,16 @@ let tag = (ns, name, ...args) => {
 };
 
 let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
-let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
+
+//------------------------------------------------------------------------------------------------
+// VanJS implementation:
+//
+// let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
+//------------------------------------------------------------------------------------------------
+let tags: Tags & NamespaceFunction = new Proxy(
+  (ns) => new Proxy(tag, handler(ns)),
+  handler()
+);
 
 let update = (dom, newDom) =>
   newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove();
