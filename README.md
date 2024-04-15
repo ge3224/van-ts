@@ -1,6 +1,6 @@
 # **VanTS**
 
-This is a [TypeScript](https://www.typescriptlang.org/) adaptation of the VanJS project. This repository serves as a personal exploration and skill development project, aiming to delve deeper into the source code of VanJS by translating it from JavaScript to TypeScript.
+This is a [TypeScript](https://www.typescriptlang.org/) adaptation of the [VanJS](https://github.com/vanjs-org/van) project. This repository serves as a personal exploration and skill development project, aiming to delve deeper into the source code of VanJS by translating it from JavaScript to TypeScript.
 
 ## About **VanJS**
 
@@ -96,7 +96,7 @@ This script performs two main tasks:
 
 #### Output
 
-The output of the build process will be placed in the `dist` directory, which will contain all your static files ready for deployment:
+The output of the build process will be placed in the dist directory, which will contain all your static files ready for deployment:
 
 ## License
 
@@ -104,5 +104,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Thanks to the creators and contributors of VanJS for providing a solid foundation in reactive UI programming concepts and inspiring this TypeScript adaptation.
+- Thanks to the creators and contributors of [VanJS](https://github.com/vanjs-org/van) for providing a solid foundation in reactive UI programming concepts and inspiring this TypeScript adaptation.
 - This project is solely for educational purposes and not affiliated with the official VanJS project.
