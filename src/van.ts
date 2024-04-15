@@ -1,3 +1,7 @@
+/**
+ * VanJS uses `let` keyword instead of `const` for reducing the bundle size.
+ */
+
 export type Primitive = string | number | boolean | bigint;
 
 export type PropValue = Primitive | ((e: any) => void) | null;
@@ -53,78 +57,126 @@ export type StateView<T> = Readonly<State<T>>;
 
 export type Val<T> = State<T> | T;
 
-// This file consistently uses `let` keyword instead of `const` for reducing the bundle size.
-// Global variables - aliasing some builtin symbols to reduce the bundle size.
+type Connectable = { _dom?: { isConnected: boolean } };
+
+/**
+ * The following are global variables used by VanJS to alias some builtin
+ * symbols and reduce the bundle size.
+ */
 
 let protoOf = Object.getPrototypeOf;
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
-//------------------------------------------------------------------------------------------------
-let changedStates: unknown;
-let derivedStates: Set<unknown>;
+/**
+ * VanJS implementation:
+ *
+ * ```
+ * let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
+ * ```
+ */
+let changedStates: Set<State<any>>;
+let derivedStates: Set<State<any>>;
 let curDeps: unknown;
 let curNewDerives: unknown;
 let alwaysConnectedDom = { isConnected: 1 };
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
-//------------------------------------------------------------------------------------------------
+/**
+ * VanJS implementation:
+ *
+ * ```
+ * let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
+ * ```
+ */
 let gcCycleInMs = 1000;
-let statesToGc: Set<any> | undefined;
+let forGarbageCollection: Set<any> | undefined;
 let propSetterCache = {};
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
-//------------------------------------------------------------------------------------------------
+/**
+ * VanJS implementation:
+ *
+ * ```
+ * let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
+ * ```
+ */
 let objProto = protoOf(alwaysConnectedDom);
 let funcProto = protoOf(protoOf);
 let _undefined: unknown;
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let addAndScheduleOnFirst = (set, s, f, waitMs) =>
-//   (set ?? (setTimeout(f, waitMs), new Set)).add(s)
-//------------------------------------------------------------------------------------------------
+/**
+ * Adds a state object to a set and schedules an associated function to be
+ * executed after a specified delay if the set is initially undefined.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let addAndScheduleOnFirst = (set, s, f, waitMs) =>
+ *   (set ?? (setTimeout(f, waitMs), new Set)).add(s)
+ * ```
+ *
+ * @template T The type parameter representing the state type stored in the set.
+ * @param {Set<State<T>> | undefined} set
+ * - The set to which the state will be added. If this parameter is undefined,
+ *   a new set is created.
+ * @param {State<T>} state
+ * - The state object to be added to the set.
+ * @param {() => void} fn
+ * - The function to execute if the set is initially undefined, scheduled to
+ *   run after `waitMs` milliseconds.
+ * @param {number} waitMs
+ * - The number of milliseconds to wait before executing the function `fn`.
+ *
+ * @returns {Set<State<T>>} The set with the new state added.
+ */
 function addAndScheduleOnFirst<T>(
-  set: Set<T> | undefined,
-  s: T,
-  f: () => void,
+  set: Set<State<T>> | undefined,
+  state: State<T>,
+  fn: () => void,
   waitMs: number
-): Set<T> {
+): Set<State<T>> {
   if (set === undefined) {
-    setTimeout(f, waitMs);
-    set = new Set<T>();
+    setTimeout(fn, waitMs);
+    set = new Set<State<T>>();
   }
-  set.add(s);
+  set.add(state);
   return set;
 }
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let runAndCaptureDeps = (f, deps, arg) => {
-//   let prevDeps = curDeps
-//   curDeps = deps
-//   try {
-//     return f(arg)
-//   } catch (e) {
-//     console.error(e)
-//     return arg
-//   } finally {
-//     curDeps = prevDeps
-//   }
-// }
-//------------------------------------------------------------------------------------------------
-function runAndCaptureDeps<T, R>(
-  f: (arg: T) => R,
+/**
+ * Executes a function with a given argument and tracks dependencies during
+ * its execution.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let runAndCaptureDeps = (f, deps, arg) => {
+ *   let prevDeps = curDeps
+ *   curDeps = deps
+ *   try {
+ *     return f(arg)
+ *   } catch (e) {
+ *     console.error(e)
+ *     return arg
+ *   } finally {
+ *     curDeps = prevDeps
+ *   }
+ * }
+ *
+ * @param {Function} fn
+ * - A function that takes an argument of type T and returns a value of type R.
+ * @param {unknown} deps
+ * - The dependencies to track or use during the execution of the function.
+ * @param {T} arg
+ * - The argument to pass to the function `f`.
+ * @returns {R | T}
+ * - Returns the result of the function `f` if it executes successfully;
+ *   otherwise, returns the argument `arg` if an error occurs.
+ * @template T
+ * - The type of the argument passed to the function.
+ * @template R
+ * - The type of the result returned by the function.
+ * ```
+ */
+function runAndCaptureDependencies<T, R>(
+  fn: (arg: T) => R,
   deps: unknown,
   arg: T
 ): R | T {
@@ -132,7 +184,7 @@ function runAndCaptureDeps<T, R>(
   curDeps = deps;
 
   try {
-    return f(arg);
+    return fn(arg);
   } catch (e) {
     console.error(e);
     return arg;
@@ -141,45 +193,66 @@ function runAndCaptureDeps<T, R>(
   }
 }
 
-type Connectable = { _dom?: { isConnected: boolean } };
-
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let keepConnected = l => l.filter(b => b._dom?.isConnected)
-//------------------------------------------------------------------------------------------------
+/**
+ * Filters an array of Connectable objects, returning only those whose `_dom`
+ * property is connected to the current document.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let keepConnected = l => l.filter(b => b._dom?.isConnected)
+ * ```
+ *
+ * @param {T[]} l
+ * - An array of objects that extend the Connectable interface, each having
+ *   potentially a `_dom` property which contains an `isConnected` boolean.
+ * @returns {T[]}
+ * - An array containing only the Connectable objects that are connected.
+ * @template T
+ * - Extends the Connectable interface, which implies each object has an
+ *   optional `_dom` property.
+ */
 function keepConnected<T extends Connectable>(l: T[]): T[] {
   return l.filter((b) => b._dom?.isConnected);
 }
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let addStatesToGc = (d) => (statesToGc = addAndScheduleOnFirst(
-//   statesToGc,
-//   d,
-//   () => {
-//     for (let s of statesToGc)
-//       (s._bindings = keepConnected(s._bindings)),
-//         (s._listeners = keepConnected(s._listeners));
-//     statesToGc = _undefined;
-//   },
-//   gcCycleInMs
-// ));
-//------------------------------------------------------------------------------------------------
-function addStatesToGc<
-  T extends { _bindings: Connectable[]; _listeners: Connectable[] },
->(d: T): void {
-  statesToGc = addAndScheduleOnFirst(
-    statesToGc,
-    d,
+/**
+ * Adds a state object to a collection that will be processed for
+ * garbage collection.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let addStatesToGc = (d) => (statesToGc = addAndScheduleOnFirst(
+ *   statesToGc,
+ *   d,
+ *   () => {
+ *     for (let s of statesToGc)
+ *       (s._bindings = keepConnected(s._bindings)),
+ *         (s._listeners = keepConnected(s._listeners));
+ *     statesToGc = _undefined;
+ *   },
+ *   gcCycleInMs
+ * ));
+ * ```
+ *
+ * @template T
+ * - The type of the value stored within the state.
+ * @param {State<T>} discard
+ * - The state object to be added to the garbage collection process. This
+ *   object must have `_bindings` and `_listeners` properties.
+ */
+function slateForGarbageCollection<T>(discard: State<T>): void {
+  forGarbageCollection = addAndScheduleOnFirst(
+    forGarbageCollection,
+    discard,
     () => {
-      if (statesToGc) {
-        for (let s of statesToGc) {
+      if (forGarbageCollection) {
+        for (let s of forGarbageCollection) {
           s._bindings = keepConnected(s._bindings);
           s._listeners = keepConnected(s._listeners);
         }
-        statesToGc = undefined; // Resets `statesToGc` after processing
+        forGarbageCollection = undefined; // Resets `forGarbageCollection` after processing
       }
     },
     gcCycleInMs
@@ -214,13 +287,8 @@ let stateProto = {
 };
 
 /**
- * Generates a property descriptor with preset characteristics for state
- * object properties.
- *
- * This function creates a property descriptor object that is intended to be
- * used when defining properties on objects using `Object.create` or similar
- * methods. It sets the properties to be writable, configurable, and
- * enumerable.
+ * Generates a property descriptor with preset characteristics for properties
+ * of a state object.
  *
  * @template T
  * - The type of the value to be set in the property descriptor.
@@ -244,8 +312,8 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  * listeners. The properties of the created object are configured to be
  * enumerable, writable, and configurable.
  *
- * A Refactor of the VanJS implementation:
- * 
+ * VanJS implementation:
+ *
  * ```
  * let state = initVal => ({
  *   __proto__: stateProto,
@@ -256,10 +324,10 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  * })
  * ```
  *
- * In contrast to the above implementation, where reducing the bundle size is a
- * key priority, we use the `Object.create` method instead of the
- * `Object.prototype.__proto__` accessor since the latter is controversial and
- * classified as deprecated.
+ * NOTE: In contrast to the above implementation, where reducing the bundle
+ * size is a key priority, we use the `Object.create` method instead of the
+ * `Object.prototype.__proto__` accessor since the latter is no
+ * longer recommended.
  *
  * @template T
  * - The type of the initial value.
@@ -267,8 +335,8 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  * - Optional initial value for the state.
  * @returns {State<T>}
  * - A new state object with properties `rawVal`, `_oldVal`, `_bindings`,
- *   and `_listeners`.
- * 
+ *   and `_listeners`
+ *
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto}
  */
 function state<T>(initVal?: T): State<T> {
@@ -285,10 +353,11 @@ let bind = (f, dom) => {
     binding = { f },
     prevNewDerives = curNewDerives;
   curNewDerives = [];
-  let newDom = runAndCaptureDeps(f, deps, dom);
+  let newDom = runAndCaptureDependencies(f, deps, dom);
   newDom = (newDom ?? document).nodeType ? newDom : new Text(newDom);
   for (let d of deps._getters)
-    deps._setters.has(d) || (addStatesToGc(d), d._bindings.push(binding));
+    deps._setters.has(d) ||
+      (slateForGarbageCollection(d), d._bindings.push(binding));
   for (let l of curNewDerives) l._dom = newDom;
   curNewDerives = prevNewDerives;
   return (binding._dom = newDom);
@@ -298,33 +367,37 @@ let derive = (f, s = state(), dom) => {
   let deps = { _getters: new Set(), _setters: new Set() },
     listener = { f, s };
   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom;
-  s.val = runAndCaptureDeps(f, deps, s.rawVal);
+  s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
-    deps._setters.has(d) || (addStatesToGc(d), d._listeners.push(listener));
+    deps._setters.has(d) ||
+      (slateForGarbageCollection(d), d._listeners.push(listener));
   return s;
 };
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let add = (dom, ...children) => {
-//   for (let c of children.flat(Infinity)) {
-//     let protoOfC = protoOf(c ?? 0);
-//     let child =
-//       protoOfC === stateProto
-//         ? bind(() => c.val)
-//         : protoOfC === funcProto
-//           ? bind(c)
-//           : c;
-//     child != _undefined && dom.append(child);
-//   }
-//   return dom;
-// };
-//------------------------------------------------------------------------------------------------
+/**
+ * VanJS implementation:
+ *
+ * ```
+ * let add = (dom, ...children) => {
+ *   for (let c of children.flat(Infinity)) {
+ *     let protoOfC = protoOf(c ?? 0);
+ *     let child =
+ *       protoOfC === stateProto
+ *         ? bind(() => c.val)
+ *         : protoOfC === funcProto
+ *           ? bind(c)
+ *           : c;
+ *     child != _undefined && dom.append(child);
+ *   }
+ *   return dom;
+ * };
+ * ```
+ */
 function add(dom: Element, ...children: readonly ChildDom[]): Element {
   // @ts-ignore
-  // TypeScript does not currently have a numeric literal type corresponding to
-  // Infinity [Github Issue](https://github.com/microsoft/TypeScript/issues/32277).
+  // TypeScript does not currently have a numeric literal type corresponding
+  // to `Infinity`.
+  // See the [Github Issue](https://github.com/microsoft/TypeScript/issues/32277).
   for (let c of children.flat(Infinity)) {
     let protoOfC = protoOf(c ?? 0);
     let child =
@@ -373,16 +446,45 @@ let tag = (ns, name, ...args) => {
   return add(dom, ...children);
 };
 
-let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
+/**
+ * Creates a proxy handler object for intercepting the 'get' property access
+ * operation. The handler wraps the access in a function call that binds the
+ * accessed property name along with an optional namespace.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
+ * ```
+ *
+ *
+ * @param {string} [namespace]
+ * - An optional namespace to be included when binding the property name to the
+ *   `tag` function. This can help differentiate or categorize property
+ *   accesses if used with multiple proxies or for properties under different
+ *   contexts.
+ * @returns {object}
+ * - Returns an object that contains a 'get' trap for a proxy. This trap is a
+ *   function that takes a target object and a property name, and returns a
+ *   result of calling `tag.bind()`, effectively intercepting and handling the
+ *   property access with customized logic.
+ */
+function proxyHandler(namespace?: string): object {
+  return {
+    get: (_: never, name: string) => tag.bind(_undefined, namespace, name),
+  };
+}
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
-//------------------------------------------------------------------------------------------------
+/**
+ * VanJS implementation:
+ *
+ * ```
+ * let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
+ * ```
+ */
 let tags: Tags & NamespaceFunction = new Proxy(
-  (ns) => new Proxy(tag, handler(ns)),
-  handler()
+  (ns) => new Proxy(tag, proxyHandler(ns)),
+  proxyHandler()
 );
 
 let update = (dom, newDom) =>
@@ -415,11 +517,23 @@ let updateDoms = () => {
   for (let s of changedStatesArray) s._oldVal = s.rawVal;
 };
 
-//------------------------------------------------------------------------------------------------
-// VanJS implementation:
-//
-// let hydrate = (dom, f) => update(dom, bind(f, dom));
-//------------------------------------------------------------------------------------------------
+/**
+ * Hydrates a DOM node by applying a transformation function and updating
+ * the node.
+ *
+ * VanJS implementation:
+ * ```
+ * let hydrate = (dom, f) => update(dom, bind(f, dom));
+ * ```
+ *
+ * @template T
+ * - Extends Node, representing the type of the DOM node being hydrated.
+ * @param {T} dom
+ * - The DOM node to hydrate. This is the node that will be transformed.
+ * @param {(dom: T) => T | null | undefined} f
+ * - A transformation function that takes the node as an argument and returns
+ *   the transformed
+ */
 function hydrate<T extends Node>(
   dom: T,
   f: (dom: T) => T | null | undefined
