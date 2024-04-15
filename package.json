@@ -1,8 +1,8 @@
 {
-  "name": "van-ts-core",
+  "name": "van-ts",
   "private": true,
   "version": "0.0.0",
-  "description": "An experimental port of VanJS to a full TypeScript project",
+  "description": "An experimental port of VanJS to TypeScript",
   "type": "module",
   "scripts": {
     "dev": "vite",
