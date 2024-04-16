@@ -47,11 +47,16 @@ export type Val<T> = State<T> | T;
 type Connectable = { _dom?: { isConnected: boolean } };
 
 /**
+ * Although VanJS opts for `let` in cases where `const` would be expected to
+ * minimize its bundle size, this project uses the `const` keyword. We will
+ * control our bundle sizes through TypeScript compilation and the Vite Build
+ * process, which includes minification and tree shaking.
+ *
  * The following are global variables used by VanJS to alias some builtin
  * symbols and reduce the bundle size.
  */
 
-let protoOf = Object.getPrototypeOf;
+const protoOf = Object.getPrototypeOf;
 
 /**
  * VanJS implementation:
@@ -64,7 +69,8 @@ let changedStates: Set<State<any>>;
 let derivedStates: Set<State<any>>;
 let curDeps: unknown;
 let curNewDerives: unknown;
-let alwaysConnectedDom = { isConnected: 1 };
+
+const alwaysConnectedDom = { isConnected: 1 };
 
 /**
  * VanJS implementation:
@@ -73,9 +79,9 @@ let alwaysConnectedDom = { isConnected: 1 };
  * let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
  * ```
  */
-let gcCycleInMs = 1000;
+const gcCycleInMs = 1000;
 let forGarbageCollection: Set<any> | undefined;
-let propSetterCache = {};
+const propSetterCache = {};
 
 /**
  * VanJS implementation:
@@ -84,8 +90,8 @@ let propSetterCache = {};
  * let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
  * ```
  */
-let objProto = protoOf(alwaysConnectedDom);
-let funcProto = protoOf(protoOf);
+const objProto = protoOf(alwaysConnectedDom);
+const funcProto = protoOf(protoOf);
 let _undefined: unknown;
 
 /**
@@ -548,7 +554,7 @@ type NamespaceFunction = (
  * @returns {NamespaceFunction}
  * - A function that creates tags within the specified namespace.
  */
-let tags = new Proxy(
+const tags = new Proxy(
   (namespace?: string) =>
     new Proxy(tag, proxyHandler(namespace)) as NamespaceFunction,
   proxyHandler()
