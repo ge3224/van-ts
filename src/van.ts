@@ -241,7 +241,7 @@ function keepConnected<T extends Connectable>(l: T[]): T[] {
  * - The state object to be added to the garbage collection process. This
  *   object must have `_bindings` and `_listeners` properties.
  */
-function slateForGarbageCollection<T>(discard: State<T>): void {
+function addForGarbageCollection<T>(discard: State<T>): void {
   forGarbageCollection = addAndScheduleOnFirst(
     forGarbageCollection,
     discard,
@@ -359,7 +359,7 @@ let bind = (f, dom) => {
   newDom = (newDom ?? document).nodeType ? newDom : new Text(newDom);
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (slateForGarbageCollection(d), d._bindings.push(binding));
+      (addForGarbageCollection(d), d._bindings.push(binding));
   for (let l of curNewDerives) l._dom = newDom;
   curNewDerives = prevNewDerives;
   return (binding._dom = newDom);
@@ -372,7 +372,7 @@ let derive = (f, s = state(), dom) => {
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (slateForGarbageCollection(d), d._listeners.push(listener));
+      (addForGarbageCollection(d), d._listeners.push(listener));
   return s;
 };
 
@@ -423,7 +423,7 @@ let tag = (ns, name, ...args) => {
     let getPropDescriptor = (proto) =>
       proto
         ? Object.getOwnPropertyDescriptor(proto, k) ??
-          getPropDescriptor(protoOf(proto))
+        getPropDescriptor(protoOf(proto))
         : _undefined;
     let cacheKey = name + "," + k;
     let propSetter =
@@ -431,10 +431,10 @@ let tag = (ns, name, ...args) => {
       (propSetterCache[cacheKey] = getPropDescriptor(protoOf(dom))?.set ?? 0);
     let setter = k.startsWith("on")
       ? (v, oldV) => {
-          let event = k.slice(2);
-          dom.removeEventListener(event, oldV);
-          dom.addEventListener(event, v);
-        }
+        let event = k.slice(2);
+        dom.removeEventListener(event, oldV);
+        dom.addEventListener(event, v);
+      }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
