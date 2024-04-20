@@ -1,7 +1,3 @@
-/**
- * VanJS uses `let` keyword instead of `const` for reducing the bundle size.
- */
-
 export type Primitive = string | number | boolean | bigint;
 
 export type PropValue = Primitive | ((e: any) => void) | null;
@@ -38,19 +34,18 @@ export interface State<T> {
   _oldVal: T | undefined;
   _bindings: unknown[];
   _listeners: unknown[];
+  _dom?: { isConnected: boolean };
 }
 
 export type StateView<T> = Readonly<State<T>>;
 
 export type Val<T> = State<T> | T;
 
-type Connectable = { _dom?: { isConnected: boolean } };
-
 /**
- * Although VanJS opts for `let` in cases where `const` would be expected to
- * minimize its bundle size, this project uses the `const` keyword. We will
- * control our bundle sizes through TypeScript compilation and the Vite Build
- * process, which includes minification and tree shaking.
+ * While VanJS prefers using `let` instead of `const` to help reduce bundle
+ * size, this project employs the `const` keyword. Bundle sizes are managed
+ * during TypeScript compilation and bundling, incorporating minification and
+ * tree shaking.
  *
  * The following are global variables used by VanJS to alias some builtin
  * symbols and reduce the bundle size.
@@ -67,7 +62,7 @@ const protoOf = Object.getPrototypeOf;
  */
 let changedStates: Set<State<any>>;
 let derivedStates: Set<State<any>>;
-let curDeps: unknown;
+let curDeps: { _getters?: object; _setters?: object } | undefined;
 let curNewDerives: unknown;
 
 const alwaysConnectedDom = { isConnected: 1 };
@@ -179,7 +174,7 @@ function addAndScheduleOnFirst<T>(
  */
 function runAndCaptureDependencies<T, R>(
   fn: (arg: T) => R,
-  deps: unknown,
+  deps: { _getters?: object; _setters?: object } | undefined,
   arg: T
 ): R | T {
   let prevDeps = curDeps;
@@ -216,7 +211,7 @@ function runAndCaptureDependencies<T, R>(
  * - Extends the Connectable interface, which implies each object has an
  *   optional `_dom` property.
  */
-function keepConnected<T extends Connectable>(l: T[]): T[] {
+function keepConnected<T extends State<T>>(l: T[]): T[] {
   return l.filter((b) => b._dom?.isConnected);
 }
 
@@ -342,10 +337,10 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  *   and `_listeners`
  */
 function state<T>(initVal?: T): State<T> {
-  //  In contrast to the above implementation, where reducing the bundle
-  //  size is a key priority, we use the `Object.create` method instead of the
-  //  `Object.prototype.__proto__` accessor since the latter is no
-  //  longer recommended.
+  // In contrast to the VanJS implementation (above), where reducing the bundle
+  // size is a key priority, we use the `Object.create` method instead of the
+  // `Object.prototype.__proto__` accessor since the latter is no longer
+  // recommended.
   //
   // [MDN Reference](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto)
   return Object.create(stateProto, {
