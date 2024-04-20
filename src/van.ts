@@ -555,7 +555,7 @@ const tags = new Proxy(
   proxyHandler()
 ) as Tags & NamespaceFunction;
 
-let update = (dom, newDom) =>
+let update = (dom: Element, newDom: Element) =>
   newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove();
 
 let updateDoms = () => {
