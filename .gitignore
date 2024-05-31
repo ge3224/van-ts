@@ -23,3 +23,9 @@ src/_*.ts
 *.njsproj
 *.sln
 *.sw?
+
+# VanJS directories and files
+.all-contributorsrc
+.vscode
+demo
+x
