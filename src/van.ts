@@ -1,12 +1,27 @@
+/**
+ * A type representing primitive JavaScript types.
+ */
 export type Primitive = string | number | boolean | bigint;
 
+/**
+ * A type representing a property value which can be a primitive, a function,
+ * or null.
+ */
 export type PropValue = Primitive | ((e: any) => void) | null;
 
+/**
+ * A type representing a property value, a state view of a property value, or a
+ * function returning a property value.
+ */
 export type PropValueOrDerived =
   | PropValue
   | StateView<PropValue>
   | (() => PropValue);
 
+/**
+ * A type representing partial props with known keys for a specific
+ * element type.
+ */
 export type Props = Record<string, PropValueOrDerived> & {
   class?: PropValueOrDerived;
 };
@@ -15,31 +30,121 @@ export type PropsWithKnownKeys<ElementType> = Partial<{
   [K in keyof ElementType]: PropValueOrDerived;
 }>;
 
+/**
+ * A type representing valid child DOM values.
+ */
 export type ValidChildDomValue = Primitive | Node | null | undefined;
 
+/**
+ * A type representing functions that generate DOM values.
+ */
 export type BindingFunc =
   | ((dom?: Node) => ValidChildDomValue)
   | ((dom?: Element) => Element);
 
+/**
+ * A type representing various possible child DOM values.
+ */
 export type ChildDom =
   | ValidChildDomValue
   | StateView<Primitive | null | undefined>
   | BindingFunc
   | readonly ChildDom[];
 
+/**
+ * Interface representing a state object with various properties and bindings.
+ */
 export interface State<T> {
   val: T | undefined;
   readonly oldVal: T | undefined;
-  readonly rawVal: T | undefined;
+  rawVal: T | undefined;
   _oldVal: T | undefined;
-  _bindings: unknown[];
-  _listeners: unknown[];
+  _bindings: any[];
+  _listeners: any[];
   _dom?: { isConnected: boolean };
 }
 
+/**
+ * A type representing a read-only view of a `State` object.
+ */
 export type StateView<T> = Readonly<State<T>>;
 
+/**
+ * A type representing a value that can be either a `State` object or a direct
+ * value of type `T`.
+ */
 export type Val<T> = State<T> | T;
+
+/**
+ * Represents a function type that constructs a tagged result using provided
+ * properties and children.
+ */
+export type TagFunc<Result> = (
+  first?: (Props & PropsWithKnownKeys<Result>) | ChildDom,
+  ...rest: readonly ChildDom[]
+) => Result;
+
+/**
+ * Interface representing dependencies with sets for getters and setters.
+ */
+interface Dependencies {
+  _getters: Set<unknown>;
+  _setters: Set<unknown>;
+}
+
+/**
+ * A function type for searching property descriptors in a prototype chain.
+ */
+type PropertyDescriptorSearchFn = (
+  proto: any
+) => ReturnType<typeof Object.getOwnPropertyDescriptor> | undefined;
+
+/**
+ * A function type for setting event listeners.
+ */
+type EventSetterFn = (
+  v: EventListenerOrEventListenerObject,
+  oldV?: EventListenerOrEventListenerObject
+) => void;
+
+/**
+ * A function type for setting property values.
+ */
+type PropSetterFn = (value: any) => void;
+
+/**
+ * Represents a function type for creating a namespace-specific collection of
+ * tag functions.
+ *
+ * @param {string} namespaceURI
+ * - The URI of the namespace for which the tag functions are being created.
+ *
+ * @returns {Readonly<Record<string, TagFunc<Element>>>}
+ * - A readonly record of string keys to TagFunc<Element> functions,
+ *   representing the collection of tag functions within the specified
+ *   namespace.
+ */
+type NamespaceFunction = (
+  namespaceURI: string
+) => Readonly<Record<string, TagFunc<Element>>>;
+
+/**
+ * Represents a type for a collection of tag functions.
+ *
+ * This type includes:
+ * - A readonly record of string keys to TagFunc<Element> functions, enabling
+ *   the creation of generic HTML elements.
+ * - Specific tag functions for each HTML element type as defined in
+ *   HTMLElementTagNameMap, with the return type corresponding to the specific
+ *   type of the HTML element (e.g., HTMLDivElement for 'div',
+ *   HTMLAnchorElement for 'a').
+ *
+ * Usage of this type allows for type-safe creation of HTML elements with
+ * specific properties and child elements.
+ */
+type Tags = Readonly<Record<string, TagFunc<Element>>> & {
+  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
+};
 
 /**
  * While VanJS prefers using `let` instead of `const` to help reduce bundle
@@ -51,6 +156,9 @@ export type Val<T> = State<T> | T;
  * symbols and reduce the bundle size.
  */
 
+/**
+ * A constant function returning the prototype of an object.
+ */
 const protoOf = Object.getPrototypeOf;
 
 /**
@@ -60,11 +168,32 @@ const protoOf = Object.getPrototypeOf;
  * let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
  * ```
  */
-let changedStates: Set<State<any>>;
-let derivedStates: Set<State<any>>;
-let curDeps: { _getters?: object; _setters?: object } | undefined;
-let curNewDerives: unknown;
 
+/**
+ * Set containing changed states.
+ */
+let changedStates: Set<State<any>>;
+
+/**
+ * Set containing derived states.
+ */
+let derivedStates: Set<State<any>>;
+
+/**
+ * Current dependencies object, containing getters and setters.
+ */
+let curDeps:
+  | { _getters?: { [key: string]: any }; _setters?: { [key: string]: any } }
+  | undefined;
+
+/**
+ * Array containing current new derivations.
+ */
+let curNewDerives: Array<any>;
+
+/**
+ * Constant representing a DOM object that is always considered connected.
+ */
 const alwaysConnectedDom = { isConnected: 1 };
 
 /**
@@ -74,9 +203,21 @@ const alwaysConnectedDom = { isConnected: 1 };
  * let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
  * ```
  */
+
+/**
+ * Constant representing the garbage collection cycle duration in milliseconds.
+ */
 const gcCycleInMs = 1000;
+
+/**
+ * Set containing objects marked for garbage collection.
+ */
 let forGarbageCollection: Set<any> | undefined;
-const propSetterCache = {};
+
+/**
+ * Cache object for property setters.
+ */
+const propSetterCache: { [key: string]: ((v: any) => void) | 0 } = {};
 
 /**
  * VanJS implementation:
@@ -85,9 +226,21 @@ const propSetterCache = {};
  * let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
  * ```
  */
+
+/**
+ * Prototype of the `alwaysConnectedDom` object.
+ */
 const objProto = protoOf(alwaysConnectedDom);
-const funcProto = protoOf(protoOf);
-let _undefined: unknown;
+
+/**
+ * Prototype of the `Function` object.
+ */
+const funcProto = Function.prototype;
+
+/**
+ * Placeholder for undefined value.
+ */
+let _undefined: any;
 
 /**
  * Adds a state object to a set and schedules an associated function to be
@@ -99,30 +252,12 @@ let _undefined: unknown;
  * let addAndScheduleOnFirst = (set, s, f, waitMs) =>
  *   (set ?? (setTimeout(f, waitMs), new Set)).add(s)
  * ```
- *
- * @template T The type parameter representing the state type stored in the set.
- *
- * @param {Set<State<T>> | undefined} set
- * - The set to which the state will be added. If this parameter is undefined,
- *   a new set is created.
- *
- * @param {State<T>} state
- * - The state object to be added to the set.
- *
- * @param {() => void} fn
- * - The function to execute if the set is initially undefined, scheduled to
- *   run after `waitMs` milliseconds.
- *
- * @param {number} waitMs
- * - The number of milliseconds to wait before executing the function `fn`.
- *
- * @returns {Set<State<T>>} The set with the new state added.
  */
 function addAndScheduleOnFirst<T>(
   set: Set<State<T>> | undefined,
   state: State<T>,
   fn: () => void,
-  waitMs: number
+  waitMs?: number
 ): Set<State<T>> {
   if (set === undefined) {
     setTimeout(fn, waitMs);
@@ -152,31 +287,12 @@ function addAndScheduleOnFirst<T>(
  *   }
  * }
  * ```
- *
- * @param {Function} fn
- * - A function that takes an argument of type T and returns a value of type R.
- *
- * @param {unknown} deps
- * - The dependencies to track or use during the execution of the function.
- *
- * @param {T} arg
- * - The argument to pass to the function `f`.
- *
- * @returns {R | T}
- * - Returns the result of the function `f` if it executes successfully;
- *   otherwise, returns the argument `arg` if an error occurs.
- *
- * @template T
- * - The type of the argument passed to the function.
- *
- * @template R
- * - The type of the result returned by the function.
  */
-function runAndCaptureDependencies<T, R>(
-  fn: (arg: T) => R,
-  deps: { _getters?: object; _setters?: object } | undefined,
-  arg: T
-): R | T {
+function runAndCaptureDependencies(
+  fn: Function,
+  deps: Dependencies | undefined,
+  arg: ValidChildDomValue | Element | undefined
+): ValidChildDomValue | Element | undefined {
   let prevDeps = curDeps;
   curDeps = deps;
 
@@ -199,17 +315,6 @@ function runAndCaptureDependencies<T, R>(
  * ```
  * let keepConnected = l => l.filter(b => b._dom?.isConnected)
  * ```
- *
- * @param {T[]} l
- * - An array of objects that extend the Connectable interface, each having
- *   potentially a `_dom` property which contains an `isConnected` boolean.
- *
- * @returns {T[]}
- * - An array containing only the Connectable objects that are connected.
- *
- * @template T
- * - Extends the Connectable interface, which implies each object has an
- *   optional `_dom` property.
  */
 function keepConnected<T extends State<T>>(l: T[]): T[] {
   return l.filter((b) => b._dom?.isConnected);
@@ -234,13 +339,6 @@ function keepConnected<T extends State<T>>(l: T[]): T[] {
  *   gcCycleInMs
  * ));
  * ```
- *
- * @template T
- * - The type of the value stored within the state.
- *
- * @param {State<T>} discard
- * - The state object to be added to the garbage collection process. This
- *   object must have `_bindings` and `_listeners` properties.
  */
 function addForGarbageCollection<T>(discard: State<T>): void {
   forGarbageCollection = addAndScheduleOnFirst(
@@ -259,29 +357,56 @@ function addForGarbageCollection<T>(discard: State<T>): void {
   );
 }
 
-let stateProto = {
-  get val() {
+/**
+ * Prototype for state objects, providing getter and setter for `val` and
+ * `oldVal`.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let stateProto = {
+ *   get val() {
+ *     curDeps?._getters?.add(this)
+ *     return this.rawVal
+ *   },
+ *
+ *   get oldVal() {
+ *     curDeps?._getters?.add(this)
+ *     return this._oldVal
+ *   },
+ *
+ *   set val(v) {
+ *     curDeps?._setters?.add(this)
+ *     if (v !== this.rawVal) {
+ *       this.rawVal = v
+ *       this._bindings.length + this._listeners.length ?
+ *         (derivedStates?.add(this), changedStates = addAndScheduleOnFirst(changedStates, this, updateDoms)) :
+ *         this._oldVal = v
+ *     }
+ *   },
+ * }
+ * ```
+ */
+const stateProto = {
+  get val(): ValidChildDomValue {
     curDeps?._getters?.add(this);
-    return this.rawVal;
+    return (this as State<any>).rawVal;
   },
 
-  get oldVal() {
+  get oldVal(): ValidChildDomValue {
     curDeps?._getters?.add(this);
-    return this._oldVal;
+    return (this as State<any>)._oldVal;
   },
 
   set val(v) {
-    curDeps?._setters?.add(this);
-    if (v !== this.rawVal) {
-      this.rawVal = v;
-      this._bindings.length + this._listeners.length
-        ? (derivedStates?.add(this),
-          (changedStates = addAndScheduleOnFirst(
-            changedStates,
-            this,
-            updateDoms
-          )))
-        : (this._oldVal = v);
+    const s = this as State<any>;
+    curDeps?._setters?.add(s);
+    if (v !== s.rawVal) {
+      s.rawVal = v;
+      s._bindings.length + s._listeners.length
+        ? (derivedStates?.add(s),
+          (changedStates = addAndScheduleOnFirst(changedStates, s, updateDoms)))
+        : (s._oldVal = v);
     }
   },
 };
@@ -289,16 +414,6 @@ let stateProto = {
 /**
  * Generates a property descriptor with preset characteristics for properties
  * of a state object.
- *
- * @template T
- * - The type of the value to be set in the property descriptor.
- *
- * @param {T} value
- * - The value to be assigned to the property.
- *
- * @returns {PropertyDescriptor}
- * - A property descriptor object with the given value and with `writable`,
- *   `configurable`, and `enumerable` properties all set to true.
  */
 function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
   return {
@@ -325,16 +440,6 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  *   _listeners: [],
  * })
  * ```
- *
- * @template T
- * - The type of the initial value.
- *
- * @param {T} [initVal]
- * - Optional initial value for the state.
- *
- * @returns {State<T>}
- * - A new state object with properties `rawVal`, `_oldVal`, `_bindings`,
- *   and `_listeners`
  */
 function state<T>(initVal?: T): State<T> {
   // In contrast to the VanJS implementation (above), where reducing the bundle
@@ -351,33 +456,92 @@ function state<T>(initVal?: T): State<T> {
   });
 }
 
-let bind = (f, dom) => {
-  let deps = { _getters: new Set(), _setters: new Set() },
-    binding = { f },
-    prevNewDerives = curNewDerives;
+function isNode(value: any): value is Node {
+  return value && typeof value === "object" && "nodeType" in value;
+}
+
+/**
+ * Binds a function to a DOM element, capturing its dependencies and updating
+ * the DOM as needed.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let bind = (f, dom) => {
+ *   let deps = { _getters: new Set(), _setters: new Set() },
+ *     binding = { f },
+ *     prevNewDerives = curNewDerives;
+ *   curNewDerives = [];
+ *   let newDom = runAndCaptureDependencies(f, deps, dom);
+ *   newDom = (newDom ?? document).nodeType ? newDom : new Text(newDom);
+ *   for (let d of deps._getters)
+ *     deps._setters.has(d) ||
+ *       (addForGarbageCollection(d), d._bindings.push(binding));
+ *   for (let l of curNewDerives) l._dom = newDom;
+ *   curNewDerives = prevNewDerives;
+ *   return (binding._dom = newDom);
+ * };
+ * ```
+ */
+function bind(
+  f: Function,
+  dom?: ValidChildDomValue | Element | undefined
+): ValidChildDomValue | Element {
+  let deps: Dependencies = { _getters: new Set(), _setters: new Set() };
+  let binding: { [key: string]: any } = { f };
+  let prevNewDerives = curNewDerives;
+
   curNewDerives = [];
   let newDom = runAndCaptureDependencies(f, deps, dom);
-  newDom = (newDom ?? document).nodeType ? newDom : new Text(newDom);
+
+  newDom = isNode(newDom ?? document)
+    ? newDom
+    : new Text(newDom as string | undefined);
+
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (addForGarbageCollection(d), d._bindings.push(binding));
+      (addForGarbageCollection(d as any), (d as any)._bindings.push(binding));
   for (let l of curNewDerives) l._dom = newDom;
   curNewDerives = prevNewDerives;
   return (binding._dom = newDom);
-};
+}
 
-let derive = (f, s = state(), dom) => {
-  let deps = { _getters: new Set(), _setters: new Set() },
-    listener = { f, s };
+/**
+ * Derives a new state by running a binding function and capturing its
+ * dependencies.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let derive = (f, s = state(), dom) => {
+ *   let deps = {_getters: new Set, _setters: new Set}, listener = {f, s}
+ *   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom
+ *   s.val = runAndCaptureDeps(f, deps, s.rawVal)
+ *   for (let d of deps._getters)
+ *     deps._setters.has(d) || (addStatesToGc(d), d._listeners.push(listener))
+ *   return s
+ * }
+ * ```
+ */
+function derive(
+  f: BindingFunc,
+  s?: State<any>,
+  dom?: HTMLElement | null | undefined
+): State<any> {
+  s = s ?? state();
+  let deps = { _getters: new Set(), _setters: new Set() };
+  let listener: { [key: string]: any } = { f, s };
   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom;
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (addForGarbageCollection(d), d._listeners.push(listener));
+      (addForGarbageCollection(d as any), (d as any)._listeners.push(listener));
   return s;
-};
+}
 
 /**
+ * Appends child elements or text nodes to a given DOM element.
+ *
  * VanJS implementation:
  *
  * ```
@@ -390,13 +554,16 @@ let derive = (f, s = state(), dom) => {
  *         : protoOfC === funcProto
  *           ? bind(c)
  *           : c;
- *     child != _undefined && dom.append(child);
+ *     child != y_undefined && dom.append(child);
  *   }
  *   return dom;
  * };
  * ```
  */
-function add(dom: Element, ...children: readonly ChildDom[]): Element {
+function add(
+  dom: Element | HTMLElement,
+  ...children: readonly ChildDom[]
+): Element | HTMLElement {
   // @ts-ignore
   // TypeScript does not currently have a numeric literal type corresponding
   // to `Infinity`.
@@ -414,40 +581,96 @@ function add(dom: Element, ...children: readonly ChildDom[]): Element {
   return dom;
 }
 
-let tag = (ns, name, ...args) => {
-  let [props, ...children] =
+/**
+ * Creates a new DOM element with specified namespace, tag name, properties,
+ * and children.
+ *
+ * VanJS implementation:
+ *
+ * ```
+ * let tag = (ns, name, ...args) => {
+ *   let [props, ...children] =
+ *     protoOf(args[0] ?? 0) === objProto ? args : [{}, ...args];
+ *   let dom = ns
+ *     ? document.createElementNS(ns, name)
+ *     : document.createElement(name);
+ *   for (let [k, v] of Object.entries(props)) {
+ *     let getPropDescriptor = (proto) =>
+ *       proto
+ *         ? Object.getOwnPropertyDescriptor(proto, k) ??
+ *         getPropDescriptor(protoOf(proto))
+ *         : _undefined;
+ *     let cacheKey = name + "," + k;
+ *     let propSetter =
+ *       propSetterCache[cacheKey] ??
+ *       (propSetterCache[cacheKey] = getPropDescriptor(protoOf(dom))?.set ?? 0);
+ *     let setter = k.startsWith("on")
+ *       ? (v, oldV) => {
+ *         let event = k.slice(2);
+ *         dom.removeEventListener(event, oldV);
+ *         dom.addEventListener(event, v);
+ *       }
+ *       : propSetter
+ *         ? propSetter.bind(dom)
+ *         : dom.setAttribute.bind(dom, k);
+ *     let protoOfV = protoOf(v ?? 0);
+ *     k.startsWith("on") ||
+ *       (protoOfV === funcProto && ((v = derive(v)), (protoOfV = stateProto)));
+ *     protoOfV === stateProto
+ *       ? bind(() => (setter(v.val, v._oldVal), dom))
+ *       : setter(v);
+ *   }
+ *   return add(dom, ...children);
+ * };
+ * ````
+ */
+function tag(ns: string | null, name: string, ...args: any): Element {
+  const [props, ...children] =
     protoOf(args[0] ?? 0) === objProto ? args : [{}, ...args];
-  let dom = ns
+
+  const dom: Element | HTMLElement = ns
     ? document.createElementNS(ns, name)
     : document.createElement(name);
+
   for (let [k, v] of Object.entries(props)) {
-    let getPropDescriptor = (proto) =>
+    const getDesc: PropertyDescriptorSearchFn = (proto: any) =>
       proto
-        ? Object.getOwnPropertyDescriptor(proto, k) ??
-        getPropDescriptor(protoOf(proto))
+        ? Object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
+          getDesc(protoOf(proto))
         : _undefined;
-    let cacheKey = name + "," + k;
-    let propSetter =
+
+    const cacheKey = `${name},${k}`;
+
+    const propSetter =
       propSetterCache[cacheKey] ??
-      (propSetterCache[cacheKey] = getPropDescriptor(protoOf(dom))?.set ?? 0);
-    let setter = k.startsWith("on")
-      ? (v, oldV) => {
-        let event = k.slice(2);
-        dom.removeEventListener(event, oldV);
-        dom.addEventListener(event, v);
-      }
+      (propSetterCache[cacheKey] = getDesc(protoOf(dom))?.set ?? 0);
+
+    const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
+      ? (
+          v: EventListenerOrEventListenerObject,
+          oldV?: EventListenerOrEventListenerObject
+        ) => {
+          const event = k.slice(2);
+          if (oldV) dom.removeEventListener(event, oldV);
+          dom.addEventListener(event, v);
+        }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
+
     let protoOfV = protoOf(v ?? 0);
+
     k.startsWith("on") ||
-      (protoOfV === funcProto && ((v = derive(v)), (protoOfV = stateProto)));
+      (protoOfV === funcProto &&
+        ((v = derive(v as BindingFunc)), (protoOfV = stateProto)));
+
     protoOfV === stateProto
-      ? bind(() => (setter(v.val, v._oldVal), dom))
-      : setter(v);
+      ? bind(() => (setter((v as any).val, (v as any)._oldVal), dom))
+      : setter(v as EventListenerOrEventListenerObject);
   }
+
   return add(dom, ...children);
-};
+}
 
 /**
  * Creates a proxy handler object for intercepting the 'get' property access
@@ -459,80 +682,13 @@ let tag = (ns, name, ...args) => {
  * ```
  * let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
  * ```
- *
- * @param {string} [namespace]
- * - An optional namespace to be included when binding the property name to the
- *   `tag` function. This can help differentiate or categorize property
- *   accesses if used with multiple proxies or for properties under different
- *   contexts.
- *
- * @returns {object}
- * - Returns an object that contains a 'get' trap for a proxy. This trap is a
- *   function that takes a target object and a property name, and returns a
- *   result of calling `tag.bind()`, effectively intercepting and handling the
- *   property access with customized logic.
  */
 function proxyHandler(namespace?: string): ProxyHandler<object> {
   return {
-    get: (_: never, name: string) => tag.bind(_undefined, namespace, name),
+    get: (_: never, name: string) =>
+      tag.bind(_undefined, namespace ?? null, name),
   };
 }
-
-/**
- * Represents a function type that constructs a tagged result using provided
- * properties and children.
- *
- * @template Result
- * - The type of the result produced by the function.
- *
- * @param {Props & PropsWithKnownKeys<Result> | ChildDom} [first]
- * - The initial parameter can either be an object combining Props and
- *   PropsWithKnownKeys specific to Result, or a ChildDom element.
- *
- * @param {...ChildDom[]} rest
- * - Additional ChildDom elements passed as subsequent arguments.
- *
- * @returns {Result}
- * - The result of the tag function, typically a DOM element or a similar construct.
- */
-export type TagFunc<Result> = (
-  first?: (Props & PropsWithKnownKeys<Result>) | ChildDom,
-  ...rest: readonly ChildDom[]
-) => Result;
-
-/**
- * Represents a type for a collection of tag functions.
- *
- * This type includes:
- * - A readonly record of string keys to TagFunc<Element> functions, enabling
- *   the creation of generic HTML elements.
- * - Specific tag functions for each HTML element type as defined in
- *   HTMLElementTagNameMap, with the return type corresponding to the specific
- *   type of the HTML element (e.g., HTMLDivElement for 'div',
- *   HTMLAnchorElement for 'a').
- *
- * Usage of this type allows for type-safe creation of HTML elements with
- * specific properties and child elements.
- */
-type Tags = Readonly<Record<string, TagFunc<Element>>> & {
-  [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
-};
-
-/**
- * Represents a function type for creating a namespace-specific collection of
- * tag functions.
- *
- * @param {string} namespaceURI
- * - The URI of the namespace for which the tag functions are being created.
- *
- * @returns {Readonly<Record<string, TagFunc<Element>>>}
- * - A readonly record of string keys to TagFunc<Element> functions,
- *   representing the collection of tag functions within the specified
- *   namespace.
- */
-type NamespaceFunction = (
-  namespaceURI: string
-) => Readonly<Record<string, TagFunc<Element>>>;
 
 /**
  * Creates a Proxy object for managing tags and namespaces.
@@ -542,12 +698,6 @@ type NamespaceFunction = (
  * ```
  * let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
  * ```
- *
- * @param {string} [namespace]
- * - Optional namespace for tags.
- *
- * @returns {NamespaceFunction}
- * - A function that creates tags within the specified namespace.
  */
 const tags = new Proxy(
   (namespace?: string) =>
@@ -555,10 +705,31 @@ const tags = new Proxy(
   proxyHandler()
 ) as Tags & NamespaceFunction;
 
-let update = (dom: Element, newDom: Element) =>
-  newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove();
+function update(dom: Element, newDom: ValidChildDomValue) {
+  newDom ? newDom !== dom && dom.replaceWith(newDom as Node) : dom.remove();
+}
 
-let updateDoms = () => {
+/**
+ * Updates DOM elements based on changed and derived states.
+ *
+ * VanJS implementation:
+ * ```
+ * let updateDoms = () => {
+ *   let iter = 0, derivedStatesArray = [...changedStates].filter(s => s.rawVal !== s._oldVal)
+ *   do {
+ *     derivedStates = new Set
+ *     for (let l of new Set(derivedStatesArray.flatMap(s => s._listeners = keepConnected(s._listeners))))
+ *       derive(l.f, l.s, l._dom), l._dom = _undefined
+ *   } while (++iter < 100 && (derivedStatesArray = [...derivedStates]).length)
+ *   let changedStatesArray = [...changedStates].filter(s => s.rawVal !== s._oldVal)
+ *   changedStates = _undefined
+ *   for (let b of new Set(changedStatesArray.flatMap(s => s._bindings = keepConnected(s._bindings))))
+ *     update(b._dom, bind(b.f, b._dom)), b._dom = _undefined
+ *   for (let s of changedStatesArray) s._oldVal = s.rawVal
+ * }
+ * ```
+ */
+function updateDoms() {
   let iter = 0,
     derivedStatesArray = [...changedStates].filter(
       (s) => s.rawVal !== s._oldVal
@@ -582,8 +753,9 @@ let updateDoms = () => {
     )
   ))
     update(b._dom, bind(b.f, b._dom)), (b._dom = _undefined);
+
   for (let s of changedStatesArray) s._oldVal = s.rawVal;
-};
+}
 
 /**
  * Hydrates a DOM node by applying a transformation function and updating
@@ -593,21 +765,11 @@ let updateDoms = () => {
  * ```
  * let hydrate = (dom, f) => update(dom, bind(f, dom));
  * ```
- *
- * @template T
- * - Extends Node, representing the type of the DOM node being hydrated.
- *
- * @param {T} dom
- * - The DOM node to hydrate. This is the node that will be transformed.
- *
- * @param {(dom: T) => T | null | undefined} f
- * - A transformation function that takes the node as an argument and returns
- *   the transformed
  */
-function hydrate<T extends Node>(
+function hydrate<T extends Element>(
   dom: T,
   f: (dom: T) => T | null | undefined
-): T {
+): T | void {
   return update(dom, bind(f, dom));
 }
 
