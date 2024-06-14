@@ -1,9 +1,17 @@
-import type { Van, State } from "../src/definitions.ts"
+import type { State } from "../src/van.ts"
 
 (<any>window).numTests = 0
 
 interface BundleOptions {
   readonly debug: boolean
+}
+
+type Van = {
+  add: Function,
+  tags: Function,
+  state: Function,
+  derive: Function,
+  hydrate: Function,
 }
 
 interface VanForTesting extends Van {
