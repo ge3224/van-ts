@@ -187,23 +187,6 @@ const protoOf = Object.getPrototypeOf;
  */
 let changedStates: Set<State<any>>;
 
-function watch(callback: (val: Set<State<any>>) => void) {
-  let current = changedStates;
-  setInterval(() => {
-    current !== changedStates && callback(changedStates);
-  }, 1);
-}
-
-watch((val) => {
-  val.forEach(state => {
-    state._bindings.length > 0 &&
-      state._bindings.forEach(binding => {
-        !binding.f &&
-          console.log(binding.f);
-      });
-  })
-})
-
 /**
  * Set containing derived states.
  */
