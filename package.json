@@ -1,24 +1,45 @@
 {
   "name": "van-ts",
-  "private": true,
-  "version": "0.0.0",
-  "description": "An experimental port of VanJS to TypeScript",
+  "version": "0.1.0",
+  "description": "A TypeScript adaptation of the VanJS project.",
   "type": "module",
+  "main": "dist/van-ts.cjs.js",
+  "module": "dist/van-ts.es.js",
+  "types": "dist/van.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "prettier": "prettier --config prettier.config.js 'src/**/*.ts' --write"
   },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.8",
+    "vite-plugin-dts": "^3.9.1"
+  },
+  "keywords": [
+    "TypeScript",
+    "VanJS",
+    "UI",
+    "UI Framework",
+    "Zero-Dependency",
+    "Minimalist",
+    "Reactive",
+    "DOM",
+    "DOM Manipulation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ge3224/van-ts"
+  },
   "author": [
     "Tao Xin",
     "Jie Bei"
   ],
-  "license": "MIT",
-  "devDependencies": {
-    "prettier": "^3.2.5",
-    "terser": "^5.31.1",
-    "typescript": "^5.4.5",
-    "vite": "^5.2.8"
-  }
+  "license": "MIT"
 }
