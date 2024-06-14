@@ -51,6 +51,19 @@ export type ChildDom =
   | BindingFunc
   | readonly ChildDom[];
 
+type ConnectedDom = { isConnected: number };
+
+type Binding = {
+  f: BindingFunc;
+  _dom: HTMLElement | null | undefined;
+}
+
+type Listener = {
+  f: BindingFunc;
+  s: State<any>;
+  _dom: HTMLElement | null | undefined;
+}
+
 /**
  * Interface representing a state object with various properties and bindings.
  */
@@ -59,9 +72,9 @@ export interface State<T> {
   readonly oldVal: T | undefined;
   rawVal: T | undefined;
   _oldVal: T | undefined;
-  _bindings: any[];
-  _listeners: any[];
-  _dom?: { isConnected: boolean };
+  _bindings: Array<Binding>;
+  _listeners: Array<Listener>;
+  _dom?: HTMLElement | null | undefined;
 }
 
 /**
@@ -174,6 +187,23 @@ const protoOf = Object.getPrototypeOf;
  */
 let changedStates: Set<State<any>>;
 
+function watch(callback: (val: Set<State<any>>) => void) {
+  let current = changedStates;
+  setInterval(() => {
+    current !== changedStates && callback(changedStates);
+  }, 1);
+}
+
+watch((val) => {
+  val.forEach(state => {
+    state._bindings.length > 0 &&
+      state._bindings.forEach(binding => {
+        !binding.f &&
+          console.log(binding.f);
+      });
+  })
+})
+
 /**
  * Set containing derived states.
  */
@@ -194,7 +224,7 @@ let curNewDerives: Array<any>;
 /**
  * Constant representing a DOM object that is always considered connected.
  */
-const alwaysConnectedDom = { isConnected: 1 };
+const alwaysConnectedDom: ConnectedDom = { isConnected: 1 };
 
 /**
  * VanJS implementation:
@@ -306,6 +336,8 @@ function runAndCaptureDependencies(
   }
 }
 
+function keepConnected(l: Listener[]): Listener[];
+function keepConnected(l: Binding[]): Binding[];
 /**
  * Filters an array of Connectable objects, returning only those whose `_dom`
  * property is connected to the current document.
@@ -316,7 +348,7 @@ function runAndCaptureDependencies(
  * let keepConnected = l => l.filter(b => b._dom?.isConnected)
  * ```
  */
-function keepConnected<T extends State<T>>(l: T[]): T[] {
+function keepConnected(l: Array<Binding> | Array<Listener>): Array<Binding> | Array<Listener> {
   return l.filter((b) => b._dom?.isConnected);
 }
 
@@ -636,7 +668,7 @@ function tag(ns: string | null, name: string, ...args: any): Element {
     const getDesc: PropertyDescriptorSearchFn = (proto: any) =>
       proto
         ? Object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
-          getDesc(protoOf(proto))
+        getDesc(protoOf(proto))
         : _undefined;
 
     const cacheKey = `${name},${k}`;
@@ -647,13 +679,13 @@ function tag(ns: string | null, name: string, ...args: any): Element {
 
     const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
       ? (
-          v: EventListenerOrEventListenerObject,
-          oldV?: EventListenerOrEventListenerObject
-        ) => {
-          const event = k.slice(2);
-          if (oldV) dom.removeEventListener(event, oldV);
-          dom.addEventListener(event, v);
-        }
+        v: EventListenerOrEventListenerObject,
+        oldV?: EventListenerOrEventListenerObject
+      ) => {
+        const event = k.slice(2);
+        if (oldV) dom.removeEventListener(event, oldV);
+        dom.addEventListener(event, v);
+      }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
@@ -705,7 +737,7 @@ const tags = new Proxy(
   proxyHandler()
 ) as Tags & NamespaceFunction;
 
-function update(dom: Element, newDom: ValidChildDomValue) {
+function update(dom: HTMLElement, newDom: ValidChildDomValue) {
   newDom ? newDom !== dom && dom.replaceWith(newDom as Node) : dom.remove();
 }
 
@@ -752,7 +784,7 @@ function updateDoms() {
       (s) => (s._bindings = keepConnected(s._bindings))
     )
   ))
-    update(b._dom, bind(b.f, b._dom)), (b._dom = _undefined);
+    b._dom && update(b._dom, bind(b.f, b._dom)), (b._dom = _undefined);
 
   for (let s of changedStatesArray) s._oldVal = s.rawVal;
 }
@@ -766,10 +798,10 @@ function updateDoms() {
  * let hydrate = (dom, f) => update(dom, bind(f, dom));
  * ```
  */
-function hydrate<T extends Element>(
-  dom: T,
-  f: (dom: T) => T | null | undefined
-): T | void {
+function hydrate(
+  dom: HTMLElement,
+  f: (dom: HTMLElement) => HTMLElement | null | undefined
+): HTMLElement | void {
   return update(dom, bind(f, dom));
 }
 
