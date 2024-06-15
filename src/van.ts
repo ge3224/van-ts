@@ -56,13 +56,13 @@ type ConnectedDom = { isConnected: number };
 type Binding = {
   f: BindingFunc;
   _dom: HTMLElement | null | undefined;
-}
+};
 
 type Listener = {
   f: BindingFunc;
   s: State<any>;
   _dom: HTMLElement | null | undefined;
-}
+};
 
 /**
  * Interface representing a state object with various properties and bindings.
@@ -100,8 +100,8 @@ export type TagFunc<Result> = (
  * Interface representing dependencies with sets for getters and setters.
  */
 interface Dependencies {
-  _getters: Set<unknown>;
-  _setters: Set<unknown>;
+  _getters: Set<State<any>>;
+  _setters: Set<State<any>>;
 }
 
 /**
@@ -194,9 +194,7 @@ let derivedStates: Set<State<any>>;
 /**
  * Current dependencies object, containing getters and setters.
  */
-let curDeps:
-  | { _getters?: { [key: string]: any }; _setters?: { [key: string]: any } }
-  | undefined;
+let curDeps: Dependencies;
 
 /**
  * Array containing current new derivations.
@@ -302,7 +300,7 @@ function addAndScheduleOnFirst<T>(
  */
 function runAndCaptureDependencies(
   fn: Function,
-  deps: Dependencies | undefined,
+  deps: Dependencies,
   arg: ValidChildDomValue | Element | undefined
 ): ValidChildDomValue | Element | undefined {
   let prevDeps = curDeps;
@@ -330,7 +328,9 @@ function keepConnected(l: Binding[]): Binding[];
  * let keepConnected = l => l.filter(b => b._dom?.isConnected)
  * ```
  */
-function keepConnected(l: Array<Binding> | Array<Listener>): Array<Binding> | Array<Listener> {
+function keepConnected(
+  l: Array<Binding> | Array<Listener>
+): Array<Binding> | Array<Listener> {
   return l.filter((b) => b._dom?.isConnected);
 }
 
@@ -402,25 +402,31 @@ function addForGarbageCollection<T>(discard: State<T>): void {
  * ```
  */
 const stateProto = {
-  get val(): ValidChildDomValue {
-    curDeps?._getters?.add(this);
-    return (this as State<any>).rawVal;
+  get val() {
+    const state = this as State<any>;
+    curDeps?._getters?.add(state);
+    return state.rawVal;
   },
 
-  get oldVal(): ValidChildDomValue {
-    curDeps?._getters?.add(this);
-    return (this as State<any>)._oldVal;
+  get oldVal() {
+    const state = this as State<any>;
+    curDeps?._getters?.add(state);
+    return state._oldVal;
   },
 
   set val(v) {
-    const s = this as State<any>;
-    curDeps?._setters?.add(s);
-    if (v !== s.rawVal) {
-      s.rawVal = v;
-      s._bindings.length + s._listeners.length
-        ? (derivedStates?.add(s),
-          (changedStates = addAndScheduleOnFirst(changedStates, s, updateDoms)))
-        : (s._oldVal = v);
+    const state = this as State<any>;
+    curDeps?._setters?.add(state);
+    if (v !== state.rawVal) {
+      state.rawVal = v;
+      state._bindings.length + state._listeners.length
+        ? (derivedStates?.add(state),
+          (changedStates = addAndScheduleOnFirst(
+            changedStates,
+            state,
+            updateDoms
+          )))
+        : (state._oldVal = v);
     }
   },
 };
@@ -543,7 +549,7 @@ function derive(
   dom?: HTMLElement | null | undefined
 ): State<any> {
   s = s ?? state();
-  let deps = { _getters: new Set(), _setters: new Set() };
+  let deps: Dependencies = { _getters: new Set(), _setters: new Set() };
   let listener: { [key: string]: any } = { f, s };
   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom;
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
@@ -650,7 +656,7 @@ function tag(ns: string | null, name: string, ...args: any): Element {
     const getDesc: PropertyDescriptorSearchFn = (proto: any) =>
       proto
         ? Object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
-        getDesc(protoOf(proto))
+          getDesc(protoOf(proto))
         : _undefined;
 
     const cacheKey = `${name},${k}`;
@@ -661,13 +667,13 @@ function tag(ns: string | null, name: string, ...args: any): Element {
 
     const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
       ? (
-        v: EventListenerOrEventListenerObject,
-        oldV?: EventListenerOrEventListenerObject
-      ) => {
-        const event = k.slice(2);
-        if (oldV) dom.removeEventListener(event, oldV);
-        dom.addEventListener(event, v);
-      }
+          v: EventListenerOrEventListenerObject,
+          oldV?: EventListenerOrEventListenerObject
+        ) => {
+          const event = k.slice(2);
+          if (oldV) dom.removeEventListener(event, oldV);
+          dom.addEventListener(event, v);
+        }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
