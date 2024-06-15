@@ -64,6 +64,8 @@ type Listener = {
   _dom: HTMLElement | null | undefined;
 };
 
+type Connectable = Listener | Binding;
+
 /**
  * Interface representing a state object with various properties and bindings.
  */
@@ -266,19 +268,19 @@ let _undefined: undefined;
  *   (set ?? (setTimeout(f, waitMs), new Set)).add(s)
  * ```
  */
-function addAndScheduleOnFirst<T>(
+const addAndScheduleOnFirst = <T>(
   set: Set<State<T>> | undefined,
   state: State<T>,
   fn: () => void,
   waitMs?: number
-): Set<State<T>> {
+): Set<State<T>> => {
   if (set === undefined) {
     setTimeout(fn, waitMs);
     set = new Set<State<T>>();
   }
   set.add(state);
   return set;
-}
+};
 
 /**
  * Executes a function with a given argument and tracks dependencies during
@@ -301,11 +303,11 @@ function addAndScheduleOnFirst<T>(
  * }
  * ```
  */
-function runAndCaptureDependencies(
+const runAndCaptureDependencies = (
   fn: Function,
   deps: Dependencies,
   arg: ValidChildDomValue | Element | undefined
-): ValidChildDomValue | Element | undefined {
+): ValidChildDomValue | Element | undefined => {
   let prevDeps = curDeps;
   curDeps = deps;
 
@@ -317,10 +319,8 @@ function runAndCaptureDependencies(
   } finally {
     curDeps = prevDeps;
   }
-}
+};
 
-function keepConnected(l: Listener[]): Listener[];
-function keepConnected(l: Binding[]): Binding[];
 /**
  * Filters an array of Connectable objects, returning only those whose `_dom`
  * property is connected to the current document.
@@ -331,11 +331,9 @@ function keepConnected(l: Binding[]): Binding[];
  * let keepConnected = l => l.filter(b => b._dom?.isConnected)
  * ```
  */
-function keepConnected(
-  l: Array<Binding> | Array<Listener>
-): Array<Binding> | Array<Listener> {
+const keepConnected = <T extends Connectable>(l: T[]): T[] => {
   return l.filter((b) => b._dom?.isConnected);
-}
+};
 
 /**
  * Adds a state object to a collection that will be processed for
@@ -357,7 +355,7 @@ function keepConnected(
  * ));
  * ```
  */
-function addForGarbageCollection<T>(discard: State<T>): void {
+const addForGarbageCollection = <T>(discard: State<T>): void => {
   forGarbageCollection = addAndScheduleOnFirst(
     forGarbageCollection,
     discard,
@@ -372,7 +370,7 @@ function addForGarbageCollection<T>(discard: State<T>): void {
     },
     gcCycleInMs
   );
-}
+};
 
 /**
  * Prototype for state objects, providing getter and setter for `val` and
@@ -438,14 +436,14 @@ const stateProto = {
  * Generates a property descriptor with preset characteristics for properties
  * of a state object.
  */
-function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
+const statePropertyDescriptor = <T>(value: T): PropertyDescriptor => {
   return {
     writable: true,
     configurable: true,
     enumerable: true,
     value: value,
   };
-}
+};
 
 /**
  * This function initializes a state object with a value, bindings, and
@@ -464,7 +462,7 @@ function statePropertyDescriptor<T>(value: T): PropertyDescriptor {
  * })
  * ```
  */
-function state<T>(initVal?: T): State<T> {
+const state = <T>(initVal?: T): State<T> => {
   // In contrast to the VanJS implementation (above), where reducing the bundle
   // size is a key priority, we use the `Object.create` method instead of the
   // `Object.prototype.__proto__` accessor since the latter is no longer
@@ -477,11 +475,11 @@ function state<T>(initVal?: T): State<T> {
     _bindings: statePropertyDescriptor([]),
     _listeners: statePropertyDescriptor([]),
   });
-}
+};
 
-function isNode(value: any): value is Node {
+const isNode = (value: any): value is Node => {
   return value && typeof value === "object" && "nodeType" in value;
-}
+};
 
 /**
  * Binds a function to a DOM element, capturing its dependencies and updating
@@ -506,10 +504,10 @@ function isNode(value: any): value is Node {
  * };
  * ```
  */
-function bind(
+const bind = (
   f: Function,
   dom?: ValidChildDomValue | Element | undefined
-): ValidChildDomValue | Element {
+): ValidChildDomValue | Element => {
   let deps: Dependencies = { _getters: new Set(), _setters: new Set() };
   let binding: { [key: string]: any } = { f };
   let prevNewDerives = curNewDerives;
@@ -527,7 +525,7 @@ function bind(
   for (let l of curNewDerives) l._dom = newDom;
   curNewDerives = prevNewDerives;
   return (binding._dom = newDom);
-}
+};
 
 /**
  * Derives a new state by running a binding function and capturing its
@@ -546,11 +544,11 @@ function bind(
  * }
  * ```
  */
-function derive(
+const derive = (
   f: BindingFunc,
   s?: State<any>,
   dom?: HTMLElement | null | undefined
-): State<any> {
+): State<any> => {
   s = s ?? state();
   let deps: Dependencies = { _getters: new Set(), _setters: new Set() };
   let listener: { [key: string]: any } = { f, s };
@@ -560,7 +558,7 @@ function derive(
     deps._setters.has(d) ||
       (addForGarbageCollection(d as any), (d as any)._listeners.push(listener));
   return s;
-}
+};
 
 /**
  * Appends child elements or text nodes to a given DOM element.
@@ -583,10 +581,10 @@ function derive(
  * };
  * ```
  */
-function add(
+const add = (
   dom: Element | HTMLElement,
   ...children: readonly ChildDom[]
-): Element | HTMLElement {
+): Element | HTMLElement => {
   // @ts-ignore
   // TypeScript does not currently have a numeric literal type corresponding
   // to `Infinity`.
@@ -602,7 +600,7 @@ function add(
     child != _undefined && dom.append(child);
   }
   return dom;
-}
+};
 
 /**
  * Creates a new DOM element with specified namespace, tag name, properties,
@@ -647,7 +645,7 @@ function add(
  * };
  * ````
  */
-function tag(ns: string | null, name: string, ...args: any): Element {
+const tag = (ns: string | null, name: string, ...args: any): Element => {
   const [props, ...children] =
     protoOf(args[0] ?? 0) === objProto ? args : [{}, ...args];
 
@@ -693,7 +691,7 @@ function tag(ns: string | null, name: string, ...args: any): Element {
   }
 
   return add(dom, ...children);
-}
+};
 
 /**
  * Creates a proxy handler object for intercepting the 'get' property access
@@ -706,12 +704,12 @@ function tag(ns: string | null, name: string, ...args: any): Element {
  * let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
  * ```
  */
-function proxyHandler(namespace?: string): ProxyHandler<object> {
+const proxyHandler = (namespace?: string): ProxyHandler<object> => {
   return {
     get: (_: never, name: string) =>
       tag.bind(_undefined, namespace ?? null, name),
   };
-}
+};
 
 /**
  * Creates a Proxy object for managing tags and namespaces.
@@ -728,9 +726,9 @@ const tags = new Proxy(
   proxyHandler()
 ) as Tags & NamespaceFunction;
 
-function update(dom: HTMLElement, newDom: ValidChildDomValue) {
+const update = (dom: HTMLElement, newDom: ValidChildDomValue) => {
   newDom ? newDom !== dom && dom.replaceWith(newDom as Node) : dom.remove();
-}
+};
 
 /**
  * Updates DOM elements based on changed and derived states.
@@ -752,7 +750,7 @@ function update(dom: HTMLElement, newDom: ValidChildDomValue) {
  * }
  * ```
  */
-function updateDoms() {
+const updateDoms = () => {
   let iter = 0,
     derivedStatesArray = changedStates
       ? [...changedStates].filter((s) => s.rawVal !== s._oldVal)
@@ -778,7 +776,7 @@ function updateDoms() {
     b._dom && update(b._dom, bind(b.f, b._dom)), (b._dom = _undefined);
 
   for (let s of changedStatesArray) s._oldVal = s.rawVal;
-}
+};
 
 /**
  * Hydrates a DOM node by applying a transformation function and updating
@@ -789,11 +787,11 @@ function updateDoms() {
  * let hydrate = (dom, f) => update(dom, bind(f, dom));
  * ```
  */
-function hydrate(
+const hydrate = (
   dom: HTMLElement,
   f: (dom: HTMLElement) => HTMLElement | null | undefined
-): HTMLElement | void {
+): HTMLElement | void => {
   return update(dom, bind(f, dom));
-}
+};
 
 export default { add, tags, state, derive, hydrate };
