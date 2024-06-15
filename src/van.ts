@@ -74,7 +74,6 @@ export interface State<T> {
   _oldVal: T | undefined;
   _bindings: Array<Binding>;
   _listeners: Array<Listener>;
-  _dom?: HTMLElement | null | undefined;
 }
 
 /**
