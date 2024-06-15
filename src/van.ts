@@ -184,7 +184,7 @@ const protoOf = Object.getPrototypeOf;
 /**
  * Set containing changed states.
  */
-let changedStates: Set<State<any>>;
+let changedStates: Set<State<any>> | undefined;
 
 /**
  * Set containing derived states.
@@ -248,9 +248,12 @@ const objProto = protoOf(alwaysConnectedDom);
 const funcProto = Function.prototype;
 
 /**
- * Placeholder for undefined value.
+ * Alias for the built-in primitive value `undefined`. This variable is used to
+ * reduce bundle size. Since it is never initialized, its value equals
+ * `undefined`. During minification, variable names are shortened, but built-in
+ * values like `undefined` remain unchanged.
  */
-let _undefined: any;
+let _undefined: undefined;
 
 /**
  * Adds a state object to a set and schedules an associated function to be
@@ -751,9 +754,9 @@ function update(dom: HTMLElement, newDom: ValidChildDomValue) {
  */
 function updateDoms() {
   let iter = 0,
-    derivedStatesArray = [...changedStates].filter(
-      (s) => s.rawVal !== s._oldVal
-    );
+    derivedStatesArray = changedStates
+      ? [...changedStates].filter((s) => s.rawVal !== s._oldVal)
+      : [];
   do {
     derivedStates = new Set();
     for (let l of new Set(
@@ -763,9 +766,9 @@ function updateDoms() {
     ))
       derive(l.f, l.s, l._dom), (l._dom = _undefined);
   } while (++iter < 100 && (derivedStatesArray = [...derivedStates]).length);
-  let changedStatesArray = [...changedStates].filter(
-    (s) => s.rawVal !== s._oldVal
-  );
+  let changedStatesArray = changedStates
+    ? [...changedStates].filter((s) => s.rawVal !== s._oldVal)
+    : [];
   changedStates = _undefined;
   for (let b of new Set(
     changedStatesArray.flatMap(
