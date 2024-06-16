@@ -10,27 +10,6 @@ export type Primitive = string | number | boolean | bigint;
 export type PropValue = Primitive | ((e: any) => void) | null;
 
 /**
- * A type representing a property value, a state view of a property value, or a
- * function returning a property value.
- */
-export type PropValueOrDerived =
-  | PropValue
-  | StateView<PropValue>
-  | (() => PropValue);
-
-/**
- * A type representing partial props with known keys for a specific
- * element type.
- */
-export type Props = Record<string, PropValueOrDerived> & {
-  class?: PropValueOrDerived;
-};
-
-export type PropsWithKnownKeys<ElementType> = Partial<{
-  [K in keyof ElementType]: PropValueOrDerived;
-}>;
-
-/**
  * A type representing valid child DOM values.
  */
 export type ValidChildDomValue = Primitive | Node | null | undefined;
@@ -88,6 +67,27 @@ export type StateView<T> = Readonly<State<T>>;
  * value of type `T`.
  */
 export type Val<T> = State<T> | T;
+
+/**
+ * A type representing a property value, a state view of a property value, or a
+ * function returning a property value.
+ */
+export type PropValueOrDerived =
+  | PropValue
+  | StateView<PropValue>
+  | (() => PropValue);
+
+/**
+ * A type representing partial props with known keys for a specific
+ * element type.
+ */
+export type Props = Record<string, PropValueOrDerived> & {
+  class?: PropValueOrDerived;
+};
+
+export type PropsWithKnownKeys<ElementType> = Partial<{
+  [K in keyof ElementType]: PropValueOrDerived;
+}>;
 
 /**
  * Represents a function type that constructs a tagged result using provided
@@ -642,7 +642,7 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
     const getDesc: PropertyDescriptorSearchFn = (proto: any) =>
       proto
         ? _object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
-          getDesc(protoOf(proto))
+        getDesc(protoOf(proto))
         : _undefined;
 
     const cacheKey = `${name},${k}`;
@@ -653,13 +653,13 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
 
     const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
       ? (
-          v: EventListenerOrEventListenerObject,
-          oldV?: EventListenerOrEventListenerObject
-        ) => {
-          const event = k.slice(2);
-          if (oldV) dom.removeEventListener(event, oldV);
-          dom.addEventListener(event, v);
-        }
+        v: EventListenerOrEventListenerObject,
+        oldV?: EventListenerOrEventListenerObject
+      ) => {
+        const event = k.slice(2);
+        if (oldV) dom.removeEventListener(event, oldV);
+        dom.addEventListener(event, v);
+      }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
