@@ -7,7 +7,7 @@ export type Primitive = string | number | boolean | bigint;
  * A type representing a property value which can be a primitive, a function,
  * or null.
  */
-export type PropValue = Primitive | ((e: any) => void) | null;
+export type PropValue = Primitive | (<T>(e: T) => void) | null;
 
 /**
  * A type representing valid child DOM values.
@@ -37,13 +37,13 @@ type Binding = {
   _dom: HTMLElement | null | undefined;
 };
 
-type Listener = {
+type Listener<T> = {
   f: BindingFunc;
-  s: State<any>;
+  s: State<T>;
   _dom?: HTMLElement | null | undefined;
 };
 
-type Connectable = Listener | Binding;
+type Connectable<T> = Listener<T> | Binding;
 
 /**
  * Interface representing a state object with various properties and bindings.
@@ -54,7 +54,7 @@ export interface State<T> {
   rawVal: T | undefined;
   _oldVal: T | undefined;
   _bindings: Array<Binding>;
-  _listeners: Array<Listener>;
+  _listeners: Array<Listener<T>>;
 }
 
 /**
@@ -101,16 +101,16 @@ export type TagFunc<Result> = (
 /**
  * Interface representing dependencies with sets for getters and setters.
  */
-interface Dependencies {
-  _getters: Set<State<any>>;
-  _setters: Set<State<any>>;
+interface Dependencies<T> {
+  _getters: Set<State<T>>;
+  _setters: Set<State<T>>;
 }
 
 /**
  * A function type for searching property descriptors in a prototype chain.
  */
-type PropertyDescriptorSearchFn = (
-  proto: any
+type PropertyDescriptorSearchFn<T> = (
+  proto: T
 ) => ReturnType<typeof Object.getOwnPropertyDescriptor> | undefined;
 
 /**
@@ -193,7 +193,7 @@ let derivedStates: Set<State<any>>;
 /**
  * Current dependencies object, containing getters and setters.
  */
-let curDeps: Dependencies;
+let curDeps: Dependencies<any>;
 
 /**
  * Array containing current new derivations.
@@ -234,7 +234,7 @@ const gcCycleInMs = 1000;
 /**
  * Cache object for property setters.
  */
-const propSetterCache: { [key: string]: ((v: any) => void) | 0 } = {};
+const propSetterCache: { [key: string]: (<T>(v: T) => void) | 0 } = {};
 
 /**
  * Prototype of the `alwaysConnectedDom` object.
@@ -294,7 +294,7 @@ const addAndScheduleOnFirst = <T>(
  */
 const runAndCaptureDependencies = (
   fn: Function,
-  deps: Dependencies,
+  deps: Dependencies<any>,
   arg: ValidChildDomValue | Element | undefined
 ): ValidChildDomValue | Element | undefined => {
   let prevDeps = curDeps;
@@ -320,7 +320,7 @@ const runAndCaptureDependencies = (
  * let keepConnected = l => l.filter(b => b._dom?.isConnected)
  * ```
  */
-const keepConnected = <T extends Connectable>(l: T[]): T[] => {
+const keepConnected = <T extends Connectable<T>>(l: T[]): T[] => {
   return l.filter((b) => b._dom?.isConnected);
 };
 
@@ -493,7 +493,7 @@ const bind = (
   f: Function,
   dom?: ValidChildDomValue | Element | undefined
 ): ValidChildDomValue | Element => {
-  let deps: Dependencies = { _getters: new Set(), _setters: new Set() };
+  let deps: Dependencies<any> = { _getters: new Set(), _setters: new Set() };
   let binding: { [key: string]: any } = { f };
   let prevNewDerives = curNewDerives;
 
@@ -535,13 +535,14 @@ const derive = (
   dom?: HTMLElement | null | undefined
 ): State<any> => {
   s = s ?? state();
-  let deps: Dependencies = { _getters: new Set(), _setters: new Set() };
+  let deps: Dependencies<any> = { _getters: new Set(), _setters: new Set() };
   let listener: { [key: string]: any } = { f, s };
   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom;
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (addForGarbageCollection(d), d._listeners.push(listener as Listener));
+      (addForGarbageCollection(d),
+      d._listeners.push(listener as Listener<any>));
   return s;
 };
 
@@ -639,10 +640,10 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
     : _document.createElement(name);
 
   for (let [k, v] of _object.entries(props)) {
-    const getDesc: PropertyDescriptorSearchFn = (proto: any) =>
+    const getDesc: PropertyDescriptorSearchFn<any> = (proto: any) =>
       proto
         ? _object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
-        getDesc(protoOf(proto))
+          getDesc(protoOf(proto))
         : _undefined;
 
     const cacheKey = `${name},${k}`;
@@ -653,13 +654,13 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
 
     const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
       ? (
-        v: EventListenerOrEventListenerObject,
-        oldV?: EventListenerOrEventListenerObject
-      ) => {
-        const event = k.slice(2);
-        if (oldV) dom.removeEventListener(event, oldV);
-        dom.addEventListener(event, v);
-      }
+          v: EventListenerOrEventListenerObject,
+          oldV?: EventListenerOrEventListenerObject
+        ) => {
+          const event = k.slice(2);
+          if (oldV) dom.removeEventListener(event, oldV);
+          dom.addEventListener(event, v);
+        }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
