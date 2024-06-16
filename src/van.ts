@@ -61,7 +61,7 @@ type Binding = {
 type Listener = {
   f: BindingFunc;
   s: State<any>;
-  _dom: HTMLElement | null | undefined;
+  _dom?: HTMLElement | null | undefined;
 };
 
 type Connectable = Listener | Binding;
@@ -171,15 +171,12 @@ type Tags = Readonly<Record<string, TagFunc<Element>>> & {
  */
 
 /**
- * A constant function returning the prototype of an object.
- */
-const protoOf = Object.getPrototypeOf;
-
-/**
  * VanJS implementation:
  *
  * ```
  * let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
+ * let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
+ * let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
  * ```
  */
 
@@ -204,17 +201,30 @@ let curDeps: Dependencies;
 let curNewDerives: Array<any>;
 
 /**
+ * Set containing objects marked for garbage collection.
+ */
+let forGarbageCollection: Set<any> | undefined;
+
+/**
+ * Alias for the built-in primitive value `undefined`. This variable is used to
+ * reduce bundle size. Since it is never initialized, its value equals
+ * `undefined`. During minification, variable names are shortened, but built-in
+ * values like `undefined` remain unchanged.
+ */
+let _undefined: undefined;
+
+const _object = Object;
+const _document = document;
+
+/**
+ * A constant function returning the prototype of an object.
+ */
+const protoOf = _object.getPrototypeOf;
+
+/**
  * Constant representing a DOM object that is always considered connected.
  */
 const alwaysConnectedDom: ConnectedDom = { isConnected: 1 };
-
-/**
- * VanJS implementation:
- *
- * ```
- * let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
- * ```
- */
 
 /**
  * Constant representing the garbage collection cycle duration in milliseconds.
@@ -222,22 +232,9 @@ const alwaysConnectedDom: ConnectedDom = { isConnected: 1 };
 const gcCycleInMs = 1000;
 
 /**
- * Set containing objects marked for garbage collection.
- */
-let forGarbageCollection: Set<any> | undefined;
-
-/**
  * Cache object for property setters.
  */
 const propSetterCache: { [key: string]: ((v: any) => void) | 0 } = {};
-
-/**
- * VanJS implementation:
- *
- * ```
- * let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
- * ```
- */
 
 /**
  * Prototype of the `alwaysConnectedDom` object.
@@ -248,14 +245,6 @@ const objProto = protoOf(alwaysConnectedDom);
  * Prototype of the `Function` object.
  */
 const funcProto = Function.prototype;
-
-/**
- * Alias for the built-in primitive value `undefined`. This variable is used to
- * reduce bundle size. Since it is never initialized, its value equals
- * `undefined`. During minification, variable names are shortened, but built-in
- * values like `undefined` remain unchanged.
- */
-let _undefined: undefined;
 
 /**
  * Adds a state object to a set and schedules an associated function to be
@@ -365,7 +354,7 @@ const addForGarbageCollection = <T>(discard: State<T>): void => {
           s._bindings = keepConnected(s._bindings);
           s._listeners = keepConnected(s._listeners);
         }
-        forGarbageCollection = undefined; // Resets `forGarbageCollection` after processing
+        forGarbageCollection = _undefined; // Resets `forGarbageCollection` after processing
       }
     },
     gcCycleInMs
@@ -469,16 +458,12 @@ const state = <T>(initVal?: T): State<T> => {
   // recommended.
   //
   // [MDN Reference](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/proto)
-  return Object.create(stateProto, {
+  return _object.create(stateProto, {
     rawVal: statePropertyDescriptor(initVal),
     _oldVal: statePropertyDescriptor(initVal),
     _bindings: statePropertyDescriptor([]),
     _listeners: statePropertyDescriptor([]),
   });
-};
-
-const isNode = (value: any): value is Node => {
-  return value && typeof value === "object" && "nodeType" in value;
 };
 
 /**
@@ -515,7 +500,7 @@ const bind = (
   curNewDerives = [];
   let newDom = runAndCaptureDependencies(f, deps, dom);
 
-  newDom = isNode(newDom ?? document)
+  newDom = ((newDom ?? _document) as Node).nodeType
     ? newDom
     : new Text(newDom as string | undefined);
 
@@ -556,7 +541,7 @@ const derive = (
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (addForGarbageCollection(d as any), (d as any)._listeners.push(listener));
+      (addForGarbageCollection(d), d._listeners.push(listener as Listener));
   return s;
 };
 
@@ -650,13 +635,13 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
     protoOf(args[0] ?? 0) === objProto ? args : [{}, ...args];
 
   const dom: Element | HTMLElement = ns
-    ? document.createElementNS(ns, name)
-    : document.createElement(name);
+    ? _document.createElementNS(ns, name)
+    : _document.createElement(name);
 
-  for (let [k, v] of Object.entries(props)) {
+  for (let [k, v] of _object.entries(props)) {
     const getDesc: PropertyDescriptorSearchFn = (proto: any) =>
       proto
-        ? Object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
+        ? _object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
           getDesc(protoOf(proto))
         : _undefined;
 
