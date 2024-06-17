@@ -138,7 +138,7 @@ type PropSetterFn = (value: any) => void;
  *   representing the collection of tag functions within the specified
  *   namespace.
  */
-type NamespaceFunction = (
+export type NamespaceFunction = (
   namespaceURI: string
 ) => Readonly<Record<string, TagFunc<Element>>>;
 
@@ -156,7 +156,7 @@ type NamespaceFunction = (
  * Usage of this type allows for type-safe creation of HTML elements with
  * specific properties and child elements.
  */
-type Tags = Readonly<Record<string, TagFunc<Element>>> & {
+export type Tags = Readonly<Record<string, TagFunc<Element>>> & {
   [K in keyof HTMLElementTagNameMap]: TagFunc<HTMLElementTagNameMap[K]>;
 };
 
@@ -542,7 +542,7 @@ const derive = (
   for (let d of deps._getters)
     deps._setters.has(d) ||
       (addForGarbageCollection(d),
-      d._listeners.push(listener as Listener<any>));
+        d._listeners.push(listener as Listener<any>));
   return s;
 };
 
@@ -643,7 +643,7 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
     const getDesc: PropertyDescriptorSearchFn<any> = (proto: any) =>
       proto
         ? _object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
-          getDesc(protoOf(proto))
+        getDesc(protoOf(proto))
         : _undefined;
 
     const cacheKey = `${name},${k}`;
@@ -654,13 +654,13 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
 
     const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
       ? (
-          v: EventListenerOrEventListenerObject,
-          oldV?: EventListenerOrEventListenerObject
-        ) => {
-          const event = k.slice(2);
-          if (oldV) dom.removeEventListener(event, oldV);
-          dom.addEventListener(event, v);
-        }
+        v: EventListenerOrEventListenerObject,
+        oldV?: EventListenerOrEventListenerObject
+      ) => {
+        const event = k.slice(2);
+        if (oldV) dom.removeEventListener(event, oldV);
+        dom.addEventListener(event, v);
+      }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);

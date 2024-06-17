@@ -1,4 +1,4 @@
-import type { State } from "../src/van.ts"
+import type { NamespaceFunction, State, Tags } from "../src/van.ts"
 
 (<any>window).numTests = 0
 
@@ -8,7 +8,7 @@ interface BundleOptions {
 
 type Van = {
   add: Function,
-  tags: Function,
+  tags: Tags & NamespaceFunction,
   state: Function,
   derive: Function,
   hydrate: Function,
@@ -21,7 +21,7 @@ interface VanForTesting extends Van {
 }
 
 const runTests = async (van: VanForTesting, msgDom: Element, { debug }: BundleOptions) => {
-  const { a, b, button, div, h2, i, input, li, option, p, pre, select, span, sup, table, tbody, td, th, thead, tr, ul } = van.tags
+  const { a, b, button, div, h2, i, input, li, option, p, pre, select, span, sup, table, tbody, td, th, thead, tr, ul } = van.tags;
 
   const assert = (cond: boolean) => {
     if (!cond) throw new Error("Assertion failed")
@@ -788,7 +788,7 @@ const runTests = async (van: VanForTesting, msgDom: Element, { debug }: BundleOp
         })
 
         return div(
-          input({ type: "checkbox", checked, onclick: e => checked.val = e.target.checked }),
+          input({ type: "checkbox", checked, onclick: e => checked.val = ((e as Event).target as HTMLInputElement).checked }),
           " Checked ", numChecked, " times. ",
           button({ onclick: () => numChecked.val = 0 }, "Reset"),
         )
@@ -989,7 +989,7 @@ const runTests = async (van: VanForTesting, msgDom: Element, { debug }: BundleOp
         }
 
         return ul(
-          items.val.map((item, i) => li({ class: i === selectedIndex.val ? "selected" : "" }, item))
+          items.val.map((item: string, i: number) => li({ class: i === selectedIndex.val ? "selected" : "" }, item))
         )
       }
       van.add(hiddenDom, domFunc)
@@ -1206,7 +1206,7 @@ const runTests = async (van: VanForTesting, msgDom: Element, { debug }: BundleOp
       assertEq(hiddenDom.innerHTML, '<button data-counter="5">Count: 5</button>')
 
       van.hydrate(hiddenDom.querySelector("button")!,
-        dom => Counter(Number(dom.getAttribute("data-counter"))))
+        (dom: HTMLElement) => Counter(Number(dom.getAttribute("data-counter"))))
 
       // After hydration, the counter is reactive
       hiddenDom.querySelector("button")!.click()
@@ -1422,7 +1422,7 @@ const runTests = async (van: VanForTesting, msgDom: Element, { debug }: BundleOp
       const dom = div()
       van.add(hiddenDom, dom)
       const num = van.state(1)
-      van.add(hiddenDom, prevDom => {
+      van.add(hiddenDom, (prevDom: HTMLElement) => {
         if (num.val === 1) return div()
         if (num.val === 2) return prevDom
         if (num.val === 3) return dom
