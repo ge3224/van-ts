@@ -1,4 +1,18 @@
 /**
+ * A TypeScript adaptation of the VanJS project.
+ *
+ * Goals:
+ *
+ * 1. Understand and translate the implementation and architecture of the VanJS source code.
+ * 2. Adapt the JavaScript code base into TypeScript, aiming to enhance readability and accessibility.
+ *
+ * Two JavaScript language features important to this project are Proxy objects
+ * and Object Prototypes. See A Guide to Reading VanJS Codebase.
+ *
+ * @link https://vanjs.org/about#source-guide
+ */
+
+/**
  * A type representing primitive JavaScript types.
  */
 export type Primitive = string | number | boolean | bigint;
@@ -665,6 +679,7 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
 
+    console.log("testing")
     let protoOfV = protoOf(v ?? 0);
 
     k.startsWith("on") ||
