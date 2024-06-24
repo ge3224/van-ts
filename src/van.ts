@@ -186,8 +186,7 @@ export type Tags = Readonly<Record<string, TagFunc<Element>>> & {
 
 /**
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let changedStates, derivedStates, curDeps, curNewDerives, alwaysConnectedDom = {isConnected: 1}
  * let gcCycleInMs = 1000, statesToGc, propSetterCache = {}
  * let objProto = protoOf(alwaysConnectedDom), funcProto = protoOf(protoOf), _undefined
@@ -273,8 +272,7 @@ const funcProto = Function.prototype;
  * executed after a specified delay if the set is initially undefined.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let addAndScheduleOnFirst = (set, s, f, waitMs) =>
  *   (set ?? (setTimeout(f, waitMs), new Set)).add(s)
  * ```
@@ -298,8 +296,7 @@ const addAndScheduleOnFirst = <T>(
  * its execution.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let runAndCaptureDeps = (f, deps, arg) => {
  *   let prevDeps = curDeps
  *   curDeps = deps
@@ -337,8 +334,7 @@ const runAndCaptureDependencies = <T>(
  * property is connected to the current document.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let keepConnected = l => l.filter(b => b._dom?.isConnected)
  * ```
  */
@@ -351,8 +347,7 @@ const keepConnected = <T extends Connectable<T>>(l: T[]): T[] => {
  * garbage collection.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let addStatesToGc = (d) => (statesToGc = addAndScheduleOnFirst(
  *   statesToGc,
  *   d,
@@ -388,8 +383,7 @@ const addForGarbageCollection = <T>(discard: State<T>): void => {
  * `oldVal`.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let stateProto = {
  *   get val() {
  *     curDeps?._getters?.add(this)
@@ -457,13 +451,15 @@ const statePropertyDescriptor = <T>(value: T): PropertyDescriptor => {
 };
 
 /**
- * This function initializes a state object with a value, bindings, and
- * listeners. The properties of the created object are configured to be
- * enumerable, writable, and configurable.
+ * Creates a state object with optional initial value. The properties of the
+ * created object are configured to be enumerable, writable, and configurable.
+ *
+ * @template
+ * @param {T} [initVal] - Optional initial value for the state.
+ * @returns {State<T>} A state object.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let state = initVal => ({
  *   __proto__: stateProto,
  *   rawVal: initVal,
@@ -492,9 +488,13 @@ const state = <T>(initVal?: T): State<T> => {
  * Binds a function to a DOM element, capturing its dependencies and updating
  * the DOM as needed.
  *
- * VanJS implementation:
+ * @template T
+ * @param {Function} f - The function to bind.
+ * @param {T | undefined} [dom] - Optional DOM element or undefined.
+ * @returns {T} The resulting DOM element or text node.*
  *
- * ```
+ * VanJS implementation:
+ * ```js
  * let bind = (f, dom) => {
  *   let deps = { _getters: new Set(), _setters: new Set() },
  *     binding = { f },
@@ -537,8 +537,13 @@ const bind = <T>(
 /**
  * Derives a State<T> based on a function and optional paremeters.
  *
- * Original VanJS implementation:
+ * @template T - The type of value returned by the derivation function.
+ * @param {() => T} f - The derivation that computes the value.
+ * @param {State<T>} [s] - Optional initial State<T> object to store the derived value.
+ * @param {ChildDom} [dom] - Optional DOM element or ChildDom to associate with the derivation.
+ * @returns {State<T>} The State<T> object containing the derived value and associated dependencies.
  *
+ * VanJS implementation:
  * ```js
  * let derive = (f, s = state(), dom) => {
  *   let deps = {_getters: new Set, _setters: new Set}, listener = {f, s}
@@ -549,12 +554,6 @@ const bind = <T>(
  *   return s
  * }
  * ```
- *
- * @template T - The type of value returned by the derivation function.
- * @param {() => T} f - The derivation that computes the value.
- * @param {State<T>} [s] - Optional initial State<T> object to store the derived value.
- * @param {ChildDom} [dom] - Optional DOM element or ChildDom to associate with the derivation.
- * @returns {State<T>} The State<T> object containing the derived value and associated dependencies.
  */
 const derive = <T>(f: () => T, s?: State<T>, dom?: ChildDom): State<T> => {
   s = s ?? state();
@@ -571,8 +570,11 @@ const derive = <T>(f: () => T, s?: State<T>, dom?: ChildDom): State<T> => {
 /**
  * Appends child elements to a DOM element and returns said DOM element.
  *
- * Original VanJS implementation:
+ * @param {Element} dom - The DOM element to which children will be added.
+ * @param {readonly ChildDom[]} children - An array of child elements or arrays of child elements to add.
+ * @returns {Element} The modified DOM element after adding all children.
  *
+ * VanJS implementation:
  * ```js
  * let add = (dom, ...children) => {
  *   for (let c of children.flat(Infinity)) {
@@ -588,9 +590,6 @@ const derive = <T>(f: () => T, s?: State<T>, dom?: ChildDom): State<T> => {
  *   return dom;
  * };
  * ```
- * @param {Element} dom - The DOM element to which children will be added.
- * @param {readonly ChildDom[]} children - An array of child elements or arrays of child elements to add.
- * @returns {Element} The modified DOM element after adding all children.
  */
 const add = (dom: Element, ...children: readonly ChildDom[]): Element => {
   for (let c of (children as any).flat(Infinity)) {
@@ -611,8 +610,7 @@ const add = (dom: Element, ...children: readonly ChildDom[]): Element => {
  * and children.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let tag = (ns, name, ...args) => {
  *   let [props, ...children] =
  *     protoOf(args[0] ?? 0) === objProto ? args : [{}, ...args];
@@ -703,8 +701,7 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
  * accessed property name along with an optional namespace.
  *
  * VanJS implementation:
- *
- * ```
+ * ```js
  * let handler = (ns) => ({ get: (_, name) => tag.bind(_undefined, ns, name) });
  * ```
  */
@@ -722,7 +719,7 @@ const proxyHandler = (namespace?: string): ProxyHandler<object> => {
  * @param {string} [namespace] - Optional namespace for organizing tags.
  * @returns {Tags & NamespaceFunction} A Proxy object representing tags and namespaces.
  *
- * Original VanJS implementation:
+ * VanJS implementation:
  * ```js
  * let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
  * ```
@@ -742,7 +739,7 @@ const tags = new Proxy(
  * @param {T} newDom - The new DOM element to replace with.
  * @returns {void}
  *
- * Original VanJS implementation:
+ * VanJS implementation:
  * ```js
  * let update = (dom, newDom) => newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove()
  * ````
@@ -757,7 +754,7 @@ const update = <T>(dom: T, newDom: T): void => {
  * Updates DOM elements based on changed and derived states.
  *
  * VanJS implementation:
- * ```
+ * ```js
  * let updateDoms = () => {
  *   let iter = 0, derivedStatesArray = [...changedStates].filter(s => s.rawVal !== s._oldVal)
  *   do {
@@ -809,7 +806,7 @@ const updateDoms = () => {
  * @param {(dom: T) => T | null | undefined} updateFn - The function to update the DOM node.
  * @returns {T | void} The updated DOM node or void if update fails.
  *
- * Original VanJS implementation:
+ * VanJS implementation:
  * ```js
  * let hydrate = (dom, f) => update(dom, bind(f, dom));
  * ```
