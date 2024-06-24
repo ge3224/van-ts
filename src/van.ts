@@ -569,11 +569,11 @@ const derive = (
 };
 
 /**
- * Appends child elements or text nodes to a given DOM element.
+ * Appends child elements to a DOM element and returns said DOM element.
  *
- * VanJS implementation:
+ * Original VanJS implementation:
  *
- * ```
+ * ```js
  * let add = (dom, ...children) => {
  *   for (let c of children.flat(Infinity)) {
  *     let protoOfC = protoOf(c ?? 0);
@@ -588,18 +588,17 @@ const derive = (
  *   return dom;
  * };
  * ```
+ * @param {Element} dom - The DOM element to which children will be added.
+ * @param {readonly ChildDom[]} children - An array of child elements or arrays of child elements to add.
+ * @returns {Element} The modified DOM element after adding all children.
  */
 const add = (
-  dom: Element | HTMLElement,
+  dom: Element,
   ...children: readonly ChildDom[]
-): Element | HTMLElement => {
-  // @ts-ignore
-  // TypeScript does not currently have a numeric literal type corresponding
-  // to `Infinity`.
-  // See the [Github Issue](https://github.com/microsoft/TypeScript/issues/32277).
-  for (let c of children.flat(Infinity)) {
-    let protoOfC = protoOf(c ?? 0);
-    let child =
+): Element => {
+  for (let c of (children as any).flat(Infinity)) {
+    const protoOfC = protoOf(c ?? 0);
+    const child =
       protoOfC === stateProto
         ? bind(() => c.val)
         : protoOfC === funcProto
@@ -687,7 +686,6 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
 
-    console.log("testing")
     let protoOfV = protoOf(v ?? 0);
 
     k.startsWith("on") ||
