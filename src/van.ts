@@ -314,11 +314,11 @@ const addAndScheduleOnFirst = <T>(
  * }
  * ```
  */
-const runAndCaptureDependencies = (
+const runAndCaptureDependencies = <T>(
   fn: Function,
-  deps: Dependencies<any>,
-  arg: ValidChildDomValue | Element | undefined
-): ValidChildDomValue | Element | undefined => {
+  deps: Dependencies<T>,
+  arg: T
+): T => {
   let prevDeps = curDeps;
   curDeps = deps;
 
@@ -535,12 +535,11 @@ const bind = (
 };
 
 /**
- * Derives a new state by running a binding function and capturing its
- * dependencies.
+ * Derives a State<T> based on a function and optional paremeters.
  *
- * VanJS implementation:
+ * Original VanJS implementation:
  *
- * ```
+ * ```js
  * let derive = (f, s = state(), dom) => {
  *   let deps = {_getters: new Set, _setters: new Set}, listener = {f, s}
  *   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom
@@ -550,21 +549,27 @@ const bind = (
  *   return s
  * }
  * ```
+ *
+ * @template T - The type of value returned by the derivation function.
+ * @param {() => T} f - The derivation that computes the value.
+ * @param {State<T>} [s] - Optional initial State<T> object to store the derived value.
+ * @param {ChildDom} [dom] - Optional DOM element or ChildDom to associate with the derivation.
+ * @returns {State<T>} The State<T> object containing the derived value and associated dependencies.
  */
-const derive = (
-  f: BindingFunc,
-  s?: State<any>,
-  dom?: HTMLElement | null | undefined
-): State<any> => {
+const derive = <T>(
+  f: () => T,
+  s?: State<T>,
+  dom?: ChildDom
+): State<T> => {
   s = s ?? state();
-  let deps: Dependencies<any> = { _getters: new Set(), _setters: new Set() };
+  let deps: Dependencies<T> = { _getters: new Set(), _setters: new Set() };
   let listener: { [key: string]: any } = { f, s };
   listener._dom = dom ?? curNewDerives?.push(listener) ?? alwaysConnectedDom;
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
     deps._setters.has(d) ||
       (addForGarbageCollection(d),
-        d._listeners.push(listener as Listener<any>));
+        d._listeners.push(listener as Listener<T>));
   return s;
 };
 
