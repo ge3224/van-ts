@@ -511,10 +511,10 @@ const state = <T>(initVal?: T): State<T> => {
  * };
  * ```
  */
-const bind = (
+const bind = <T>(
   f: Function,
-  dom?: ValidChildDomValue | Element | undefined
-): ValidChildDomValue | Element => {
+  dom?: T | undefined
+): T => {
   let deps: Dependencies<any> = { _getters: new Set(), _setters: new Set() };
   let binding: { [key: string]: any } = { f };
   let prevNewDerives = curNewDerives;
@@ -556,11 +556,7 @@ const bind = (
  * @param {ChildDom} [dom] - Optional DOM element or ChildDom to associate with the derivation.
  * @returns {State<T>} The State<T> object containing the derived value and associated dependencies.
  */
-const derive = <T>(
-  f: () => T,
-  s?: State<T>,
-  dom?: ChildDom
-): State<T> => {
+const derive = <T>(f: () => T, s?: State<T>, dom?: ChildDom): State<T> => {
   s = s ?? state();
   let deps: Dependencies<T> = { _getters: new Set(), _setters: new Set() };
   let listener: { [key: string]: any } = { f, s };
@@ -568,8 +564,7 @@ const derive = <T>(
   s.val = runAndCaptureDependencies(f, deps, s.rawVal);
   for (let d of deps._getters)
     deps._setters.has(d) ||
-      (addForGarbageCollection(d),
-        d._listeners.push(listener as Listener<T>));
+      (addForGarbageCollection(d), d._listeners.push(listener as Listener<T>));
   return s;
 };
 
@@ -597,10 +592,7 @@ const derive = <T>(
  * @param {readonly ChildDom[]} children - An array of child elements or arrays of child elements to add.
  * @returns {Element} The modified DOM element after adding all children.
  */
-const add = (
-  dom: Element,
-  ...children: readonly ChildDom[]
-): Element => {
+const add = (dom: Element, ...children: readonly ChildDom[]): Element => {
   for (let c of (children as any).flat(Infinity)) {
     const protoOfC = protoOf(c ?? 0);
     const child =
@@ -724,11 +716,14 @@ const proxyHandler = (namespace?: string): ProxyHandler<object> => {
 };
 
 /**
- * Creates a Proxy object for managing tags and namespaces.
+ * Creates a Proxy-based Tags object with optional namespace functionality.
  *
- * VanJS implementation:
+ * @function
+ * @param {string} [namespace] - Optional namespace for organizing tags.
+ * @returns {Tags & NamespaceFunction} A Proxy object representing tags and namespaces.
  *
- * ```
+ * Original VanJS implementation:
+ * ```js
  * let tags = new Proxy((ns) => new Proxy(tag, handler(ns)), handler());
  * ```
  */
@@ -738,8 +733,24 @@ const tags = new Proxy(
   proxyHandler()
 ) as Tags & NamespaceFunction;
 
-const update = (dom: HTMLElement, newDom: ValidChildDomValue) => {
-  newDom ? newDom !== dom && dom.replaceWith(newDom as Node) : dom.remove();
+/**
+ * Updates a DOM element with a new DOM element, replacing the old one or
+ * removing it if newDom is null or undefined.
+ *
+ * @template T
+ * @param {T} dom - The current DOM element to update.
+ * @param {T} newDom - The new DOM element to replace with.
+ * @returns {void}
+ *
+ * Original VanJS implementation:
+ * ```js
+ * let update = (dom, newDom) => newDom ? newDom !== dom && dom.replaceWith(newDom) : dom.remove()
+ * ````
+ */
+const update = <T>(dom: T, newDom: T): void => {
+  newDom
+    ? newDom !== dom && (dom as HTMLElement).replaceWith(newDom as string | Node)
+    : (dom as HTMLElement).remove();
 };
 
 /**
@@ -791,19 +802,23 @@ const updateDoms = () => {
 };
 
 /**
- * Hydrates a DOM node by applying a transformation function and updating
- * the node.
+ * Hydrates a DOM element with a function that updates its content.
  *
- * VanJS implementation:
- * ```
+ * @template T
+ * @param {T} dom - The DOM node to hydrate.
+ * @param {(dom: T) => T | null | undefined} updateFn - The function to update the DOM node.
+ * @returns {T | void} The updated DOM node or void if update fails.
+ *
+ * Original VanJS implementation:
+ * ```js
  * let hydrate = (dom, f) => update(dom, bind(f, dom));
  * ```
  */
-const hydrate = (
-  dom: HTMLElement,
-  f: (dom: HTMLElement) => HTMLElement | null | undefined
-): HTMLElement | void => {
-  return update(dom, bind(f, dom));
+const hydrate = <T extends Node>(
+  dom: T,
+  updateFn: (dom: T) => T | null | undefined
+): T | void => {
+  return update(dom, bind(updateFn, dom));
 };
 
 export default { add, tags, state, derive, hydrate };
