@@ -409,19 +409,19 @@ const addForGarbageCollection = <T>(discard: State<T>): void => {
  */
 const stateProto = {
   get val() {
-    const state = this as State<any>;
+    const state = this as State<unknown>;
     curDeps?._getters?.add(state);
     return state.rawVal;
   },
 
   get oldVal() {
-    const state = this as State<any>;
+    const state = this as State<unknown>;
     curDeps?._getters?.add(state);
     return state._oldVal;
   },
 
   set val(v) {
-    const state = this as State<any>;
+    const state = this as State<unknown>;
     curDeps?._setters?.add(state);
     if (v !== state.rawVal) {
       state.rawVal = v;
