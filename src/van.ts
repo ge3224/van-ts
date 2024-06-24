@@ -222,12 +222,20 @@ let forGarbageCollection: Set<any> | undefined;
 /**
  * Alias for the built-in primitive value `undefined`. This variable is used to
  * reduce bundle size. Since it is never initialized, its value equals
- * `undefined`. During minification, variable names are shortened, but built-in
- * values like `undefined` remain unchanged.
+ * `undefined`. During minification, variable names are shortened.
  */
 let _undefined: undefined;
 
+/**
+ * Alias for the keyword `Object`. This is used to reduce bundle size during
+ * minification.
+ */
 const _object = Object;
+
+/**
+ * Alias for the keyword `document`. This is used to reduce bundle size during
+ * minification.
+ */
 const _document = document;
 
 /**
