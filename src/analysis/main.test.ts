@@ -1,5 +1,6 @@
 import { describe, it, assert, vi, beforeEach, Mock } from "vitest";
-import { isVanPrimitive, isVanPropValue, watchVar } from "./main";
+import { isVanPrimitive, isVanPropValue, isVanState, watchVar } from "./main";
+import { State } from "@/van";
 
 describe("test isPrimitive type guard", () => {
   it("returns 'true' for type 'string'", () => {
@@ -39,6 +40,40 @@ describe("test isPrimitive type guard", () => {
   });
 });
 
+describe("test isVanState type guard", () => {
+  it("returns 'false' for 'null'", () => {
+    assert.isFalse(isVanState(null));
+  });
+
+  it("returns 'false' for 'undefined'", () => {
+    assert.isFalse(isVanState(undefined));
+  });
+
+  it("returns 'false' for non-object types", () => {
+    [
+      "foo",
+      42,
+      true,
+      BigInt("0x1fffffffffffff"),
+      Symbol("foo"),
+      () => "foo",
+    ].forEach((item) => {
+      assert.isFalse(isVanState(item), item?.toString());
+    });
+  });
+
+  it("returns 'true' for a valid object", () => {
+    assert.isTrue(
+      isVanState({ val: "foo", oldVal: "bar", rawVal: "foo" } as State<string>)
+    );
+  });
+
+  it("returns 'false' for an invalid objects", () => {
+    assert.isFalse(isVanState({}));
+    assert.isFalse(isVanState({ val: "foo", oldVar: 42, rawVal: false }));
+  });
+});
+
 describe("test isVanPropValue type guard", () => {
   it("returns 'true' for 'null'", () => {
     assert.isTrue(isVanPropValue(null));
@@ -50,23 +85,26 @@ describe("test isVanPropValue type guard", () => {
 
   it("returns 'true' for valid function signatures", () => {
     [
-      (e?: any) => {
+      (e: any) => {
         console.log(e);
       },
-      (e?: any) => {
+      (e: any) => {
         console.log(e);
         return;
       },
-      (e?: any) => {
+      (e: any) => {
         console.log(e);
         return undefined;
       },
-      (e?: any) => {
+      (e: any) => {
         console.log(e);
         return void 0;
       },
+      (e: any) => console.log(e),
+      // @ts-ignore
+      (e: any) => undefined,
     ].forEach((fn) => {
-      assert.isTrue(isVanPropValue(fn));
+      assert.isTrue(isVanPropValue(fn), fn.toString());
     });
   });
 
@@ -75,17 +113,18 @@ describe("test isVanPropValue type guard", () => {
       (e: any) => {
         return e;
       },
+      (e: any) => e,
       (e: any, f: any) => {
         console.log(e, f);
       },
     ].forEach((fn) => {
-      assert.isFalse(isVanPropValue(fn));
+      assert.isFalse(isVanPropValue(fn), fn.toString());
     });
   });
 
   it("returns 'true' for the van 'Primitive' type", () => {
     ["foo", 42, true, BigInt(BigInt("0x1fffffffffffff"))].forEach((item) => {
-      assert.isTrue(isVanPropValue(item));
+      assert.isTrue(isVanPropValue(item), item?.toString());
     });
   });
 });

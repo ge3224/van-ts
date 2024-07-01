@@ -1,9 +1,29 @@
-import { Primitive, PropValue } from "@/van";
+import { Primitive, PropValue, State } from "@/van";
 import * as acorn from "acorn";
 import * as walk from "acorn-walk";
 
 export function isVanPrimitive(input: unknown): input is Primitive {
   return ["string", "number", "boolean", "bigint"].includes(typeof input);
+}
+
+export function isVanState<T>(input: unknown): input is State<T> {
+  if (!input) {
+    return false;
+  }
+  if (typeof input !== "object") {
+    return false;
+  }
+  let hasProps = ["val", "oldVal", "rawVal"].every((prop) =>
+    Object.hasOwn(input, prop)
+  );
+
+  if (!hasProps) {
+    return false;
+  }
+
+  const s = input as State<T>;
+
+  return typeof s.val === typeof s.oldVal && typeof s.val === typeof s.rawVal;
 }
 
 function isValidPropValueFn(
@@ -38,6 +58,29 @@ function isValidPropValueFn(
   return singleParam && !invalidReturn;
 }
 
+function isValidPropValueArrowFn(node: acorn.ArrowFunctionExpression): boolean {
+  const hasSingleParam =
+    node.params.length === 1 && node.params[0].type === "Identifier";
+
+  if (node.body.type === "BlockStatement") {
+    return isValidPropValueFn(node);
+  } else {
+    // Implicit return in arrow function
+    const body = node.body;
+    if (body.type === "Identifier" || body.type === "Literal") {
+      return false;
+    } else if (
+      (body.type === "UnaryExpression" && body.operator === "void") ||
+      body.type === "UpdateExpression" ||
+      body.type === "CallExpression"
+    ) {
+      return hasSingleParam;
+    } else {
+      return false;
+    }
+  }
+}
+
 export function isVanPropValue(input: unknown): input is PropValue {
   if (input === null) {
     return true;
@@ -58,7 +101,7 @@ export function isVanPropValue(input: unknown): input is PropValue {
         valid = isValidPropValueFn(node);
       },
       ArrowFunctionExpression(node) {
-        valid = isValidPropValueFn(node);
+        valid = isValidPropValueArrowFn(node);
       },
     });
     return valid;
