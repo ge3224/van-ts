@@ -511,10 +511,7 @@ const state = <T>(initVal?: T): State<T> => {
  * };
  * ```
  */
-const bind = <T>(
-  f: Function,
-  dom?: T | undefined
-): T => {
+const bind = <T>(f: Function, dom?: T | undefined): T => {
   let deps: Dependencies<any> = { _getters: new Set(), _setters: new Set() };
   let binding: { [key: string]: any } = { f };
   let prevNewDerives = curNewDerives;
@@ -659,7 +656,7 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
     const getDesc: PropertyDescriptorSearchFn<any> = (proto: any) =>
       proto
         ? _object.getOwnPropertyDescriptor(proto, k as PropertyKey) ??
-        getDesc(protoOf(proto))
+          getDesc(protoOf(proto))
         : _undefined;
 
     const cacheKey = `${name},${k}`;
@@ -670,13 +667,13 @@ const tag = (ns: string | null, name: string, ...args: any): Element => {
 
     const setter: PropSetterFn | EventSetterFn = k.startsWith("on")
       ? (
-        v: EventListenerOrEventListenerObject,
-        oldV?: EventListenerOrEventListenerObject
-      ) => {
-        const event = k.slice(2);
-        if (oldV) dom.removeEventListener(event, oldV);
-        dom.addEventListener(event, v);
-      }
+          v: EventListenerOrEventListenerObject,
+          oldV?: EventListenerOrEventListenerObject
+        ) => {
+          const event = k.slice(2);
+          if (oldV) dom.removeEventListener(event, oldV);
+          dom.addEventListener(event, v);
+        }
       : propSetter
         ? propSetter.bind(dom)
         : dom.setAttribute.bind(dom, k);
@@ -746,7 +743,8 @@ const tags = new Proxy(
  */
 const update = <T>(dom: T, newDom: T): void => {
   newDom
-    ? newDom !== dom && (dom as HTMLElement).replaceWith(newDom as string | Node)
+    ? newDom !== dom &&
+      (dom as HTMLElement).replaceWith(newDom as string | Node)
     : (dom as HTMLElement).remove();
 };
 
