@@ -1,5 +1,5 @@
 import { describe, it, assert, vi, beforeEach, Mock } from "vitest";
-import { isVanPrimitive, watchVar } from "./main";
+import { isVanPrimitive, isVanPropValue, watchVar } from "./main";
 
 describe("test isPrimitive type guard", () => {
   it("returns 'true' for type 'string'", () => {
@@ -39,6 +39,57 @@ describe("test isPrimitive type guard", () => {
   });
 });
 
+describe("test isVanPropValue type guard", () => {
+  it("returns 'true' for 'null'", () => {
+    assert.isTrue(isVanPropValue(null));
+  });
+
+  it("returns 'false' for 'undefined'", () => {
+    assert.isFalse(isVanPropValue(undefined));
+  });
+
+  it("returns 'true' for valid function signatures", () => {
+    [
+      (e?: any) => {
+        console.log(e);
+      },
+      (e?: any) => {
+        console.log(e);
+        return;
+      },
+      (e?: any) => {
+        console.log(e);
+        return undefined;
+      },
+      (e?: any) => {
+        console.log(e);
+        return void 0;
+      },
+    ].forEach((fn) => {
+      assert.isTrue(isVanPropValue(fn));
+    });
+  });
+
+  it("returns 'false' for invalid function signatures", () => {
+    [
+      (e: any) => {
+        return e;
+      },
+      (e: any, f: any) => {
+        console.log(e, f);
+      },
+    ].forEach((fn) => {
+      assert.isFalse(isVanPropValue(fn));
+    });
+  });
+
+  it("returns 'true' for the van 'Primitive' type", () => {
+    ["foo", 42, true, BigInt(BigInt("0x1fffffffffffff"))].forEach((item) => {
+      assert.isTrue(isVanPropValue(item));
+    });
+  });
+});
+
 describe("test watchVar helper function", () => {
   let getVal: Mock;
   let callback: Mock;
@@ -47,7 +98,7 @@ describe("test watchVar helper function", () => {
     getVal = vi.fn();
     callback = vi.fn();
     vi.useFakeTimers();
-  })
+  });
 
   it("invokes the callback when the value changes", () => {
     getVal.mockReturnValueOnce(1);
