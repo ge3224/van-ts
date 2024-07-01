@@ -13,14 +13,17 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "prettier": "prettier --config prettier.config.js 'src/**/*.ts' --write"
+    "prettier": "prettier --config prettier.config.js 'src/**/*.ts' --write",
+    "test": "vitest"
   },
   "devDependencies": {
     "@types/node": "^20.14.2",
+    "happy-dom": "^14.12.3",
     "prettier": "^3.2.5",
     "typescript": "^5.4.5",
     "vite": "^5.2.8",
-    "vite-plugin-dts": "^3.9.1"
+    "vite-plugin-dts": "^3.9.1",
+    "vitest": "^1.6.0"
   },
   "keywords": [
     "TypeScript",
