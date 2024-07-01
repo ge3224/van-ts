@@ -11,6 +11,12 @@ importers:
       '@types/node':
         specifier: ^20.14.2
         version: 20.14.2
+      acorn:
+        specifier: ^8.12.0
+        version: 8.12.0
+      acorn-walk:
+        specifier: ^8.3.3
+        version: 8.3.3
       happy-dom:
         specifier: ^14.12.3
         version: 14.12.3
@@ -390,6 +396,11 @@ packages:
 
   acorn@8.11.3:
     resolution: {integrity: sha512-Y9rRfJG5jcKOE0CLisYbojUjIrIEE7AGMzA/Sm4BslANhbS+cDMpgBdcPT91oJ7OuJ9hYJBx59RjbhxVnrF8Xg==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  acorn@8.12.0:
+    resolution: {integrity: sha512-RTvkC4w+KNXrM39/lWCUaG0IbRkWdCv7W/IOW9oU6SawyxulvkQy5HQPVTKxEjczcUvapcrw3cFx/60VN/NRNw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -1235,9 +1246,12 @@ snapshots:
 
   acorn-walk@8.3.3:
     dependencies:
-      acorn: 8.11.3
+      acorn: 8.12.0
 
-  acorn@8.11.3: {}
+  acorn@8.11.3:
+    optional: true
+
+  acorn@8.12.0: {}
 
   ajv@6.12.6:
     dependencies:
@@ -1456,7 +1470,7 @@ snapshots:
 
   mlly@1.7.1:
     dependencies:
-      acorn: 8.11.3
+      acorn: 8.12.0
       pathe: 1.1.2
       pkg-types: 1.1.2
       ufo: 1.5.3
